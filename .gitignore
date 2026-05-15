@@ -1,0 +1,41 @@
+# ── Secrets / environment ─────────────────────────────────────────
+.env
+*.env
+!.env.example
+
+# ── Python ────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+.venv/
+venv/
+env/
+
+# ── Docker / data volumes ─────────────────────────────────────────
+*.log
+
+# ── OS / editor ───────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*.swo
+.idea/
+.vscode/
+*.sublime-*
+
+# ── Node (if ever added) ──────────────────────────────────────────
+node_modules/
+
+# ── Claude Code local settings ───────────────────────────────────
+.claude/settings.local.json
+
+# ── Scratch / legacy ─────────────────────────────────────────────
+NEW/

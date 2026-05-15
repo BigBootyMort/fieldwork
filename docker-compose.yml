@@ -1,0 +1,193 @@
+name: fieldwork
+
+services:
+  neo4j:
+    image: neo4j:5-community
+    container_name: fieldwork-neo4j
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:-changeme_dev_only}
+      NEO4J_PLUGINS: '["apoc"]'
+      NEO4J_dbms_security_procedures_unrestricted: apoc.*
+      NEO4J_dbms_security_auth__minimum__password__length: 4
+    ports:
+      - "127.0.0.1:7474:7474"
+      - "127.0.0.1:7687:7687"
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+    healthcheck:
+      test: ["CMD-SHELL", "cypher-shell -u neo4j -p ${NEO4J_PASSWORD:-changeme_dev_only} 'RETURN 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  neo4j-init:
+    image: neo4j:5-community
+    container_name: fieldwork-neo4j-init
+    depends_on:
+      neo4j:
+        condition: service_healthy
+    volumes:
+      - ./neo4j/init.cypher:/init.cypher:ro
+    entrypoint: ["bash", "-c"]
+    command: >
+      "cypher-shell -a bolt://neo4j:7687 -u neo4j -p ${NEO4J_PASSWORD:-changeme_dev_only} -f /init.cypher && echo 'Schema initialized'"
+    restart: "no"
+
+  backend:
+    build: ./backend
+    container_name: fieldwork-backend
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      NEO4J_URI:              bolt://neo4j:7687
+      NEO4J_USER:             neo4j
+      NEO4J_PASSWORD:         ${NEO4J_PASSWORD:-changeme_dev_only}
+      # Phase 13 — set a stable secret so tokens survive restarts
+      JWT_SECRET:             ${JWT_SECRET:-change_this_to_a_long_random_string}
+      ACCESS_TOKEN_EXPIRE_HOURS: ${ACCESS_TOKEN_EXPIRE_HOURS:-8}
+      OPENCORPORATES_TOKEN:   ${OPENCORPORATES_TOKEN:-}
+      GITHUB_TOKEN:           ${GITHUB_TOKEN:-}
+      NEWS_API_KEY:           ${NEWS_API_KEY:-}
+      SEC_USER_AGENT:         ${SEC_USER_AGENT:-Fieldwork OSINT research@fieldwork.local}
+      SHODAN_API_KEY:         ${SHODAN_API_KEY:-}
+      VIRUSTOTAL_API_KEY:     ${VIRUSTOTAL_API_KEY:-}
+      ALEPH_API_KEY:          ${ALEPH_API_KEY:-}
+      SAUCENAO_KEY:           ${SAUCENAO_KEY:-}
+      CENSYS_API_ID:          ${CENSYS_API_ID:-}
+      CENSYS_API_SECRET:      ${CENSYS_API_SECRET:-}
+      DEHASHED_EMAIL:         ${DEHASHED_EMAIL:-}
+      DEHASHED_KEY:           ${DEHASHED_KEY:-}
+      ABUSEIPDB_KEY:          ${ABUSEIPDB_KEY:-}
+      NUMVERIFY_KEY:          ${NUMVERIFY_KEY:-}
+      OLLAMA_EMBED_MODEL:     ${OLLAMA_EMBED_MODEL:-nomic-embed-text}
+      SPIDERFOOT_URL:         http://spiderfoot:5001
+      MAIGRET_URL:            http://maigret:7000
+      HARVESTER_URL:          http://theharvester:7001
+      LIBRETRANSLATE_URL:     http://libretranslate:5000
+      # Phase 6 — new data sources
+      OPENSKY_USERNAME:       ${OPENSKY_USERNAME:-}
+      OPENSKY_PASSWORD:       ${OPENSKY_PASSWORD:-}
+      HIBP_API_KEY:           ${HIBP_API_KEY:-}
+      ARKHAM_API_KEY:         ${ARKHAM_API_KEY:-}
+      # Phase 16 — Local LLM
+      OLLAMA_URL:             http://ollama:11434
+      OLLAMA_MODEL:           ${OLLAMA_MODEL:-llama3.2}
+    volumes:
+      - ./backend/app:/app
+    depends_on:
+      neo4j:
+        condition: service_healthy
+
+  # Frontend — nginx serving the single-page OSINT dashboard.
+  frontend:
+    build: ./frontend
+    container_name: fieldwork-frontend
+    ports:
+      - "127.0.0.1:3000:80"
+    restart: unless-stopped
+    depends_on:
+      - backend
+
+  # Maigret — username OSINT across 3000+ sites.
+  # Not exposed publicly — only the backend reaches it.
+  maigret:
+    build:
+      context: ./maigret
+    container_name: fieldwork-maigret
+    restart: unless-stopped
+
+  # theHarvester — email + subdomain harvesting from open sources.
+  # Not exposed publicly — only the backend reaches it.
+  theharvester:
+    build:
+      context: ./theharvester
+    container_name: fieldwork-theharvester
+    restart: unless-stopped
+
+  # SpiderFoot — OSINT automation framework.
+  # Built from GitHub source (no PyPI/Docker Hub package exists).
+  # SpiderFoot has NO built-in auth — bound to 127.0.0.1 only.
+  spiderfoot:
+    build:
+      context: ./spiderfoot
+    container_name: fieldwork-spiderfoot
+    ports:
+      - "127.0.0.1:5001:5001"
+    volumes:
+      - spiderfoot_data:/data
+    restart: unless-stopped
+
+  # ── Phase 16: Ollama — local LLM inference ───────────────────────────────
+  # Runs llama3.2 (3 B) by default. Change OLLAMA_MODEL in .env to swap.
+  # GPU passthrough (optional — uncomment deploy block if you have an NVIDIA GPU):
+  #
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: all
+  #             capabilities: [gpu]
+  #
+  # First-run model pull happens via ollama-init below (~2 GB download).
+  ollama:
+    image: ollama/ollama
+    container_name: fieldwork-ollama
+    ports:
+      - "127.0.0.1:11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  # Pulls the default model on first compose-up.
+  # Re-runs on every compose-up but ollama pull is a no-op if the model
+  # is already present, so it exits quickly on subsequent starts.
+  ollama-init:
+    image: ollama/ollama
+    container_name: fieldwork-ollama-init
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST:  http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2}
+    entrypoint: ["sh", "-c"]
+    command: "ollama pull $OLLAMA_MODEL && echo \"Model $OLLAMA_MODEL ready\""
+    restart: "no"
+
+  # ── Optional: LibreTranslate (Phase 4.5) ─────────────────────────────────
+  # Self-hosted translation engine. Only starts when you include the
+  # "translation" profile:
+  #
+  #   docker compose --profile translation up -d
+  #
+  # First start downloads language models (~600 MB). Falls back gracefully
+  # if not running — the backend simply skips translation.
+  libretranslate:
+    image: libretranslate/libretranslate:latest
+    container_name: fieldwork-libretranslate
+    ports:
+      - "127.0.0.1:5000:5000"
+    environment:
+      LT_LOAD_ONLY: "en,es,fr,de,it,pt,ru,ar,zh,ja,ko"
+      LT_UPDATE_MODELS: "true"
+    volumes:
+      - libretranslate_models:/home/libretranslate/.local
+    restart: unless-stopped
+    profiles:
+      - translation
+
+volumes:
+  neo4j_data:
+  neo4j_logs:
+  spiderfoot_data:
+  libretranslate_models:
+  ollama_models:
