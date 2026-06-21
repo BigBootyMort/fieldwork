@@ -30,6 +30,12 @@ class InvestigateRequest(BaseModel):
     type:   str = Field("auto", max_length=20)
 
 
+class RetroRequest(BaseModel):
+    query:     str = Field(..., min_length=2, max_length=200)
+    question:  Optional[str] = Field(None, max_length=400)
+    days_back: int = Field(30, ge=1, le=365)
+
+
 def build_router(service: NewsService) -> APIRouter:
     global _service
     _service = service
@@ -131,5 +137,12 @@ def build_router(service: NewsService) -> APIRouter:
     @router.post("/investigate")
     async def investigate(req: InvestigateRequest):
         return await _service.investigate(target=req.target, ttype=req.type)
+
+    # ── Time-back intelligence (retrospective timeline / Q&A) ──────────────
+    @router.post("/retro")
+    async def retro(req: RetroRequest):
+        return await _service.retro_query(
+            query=req.query, question=req.question, days_back=req.days_back,
+        )
 
     return router

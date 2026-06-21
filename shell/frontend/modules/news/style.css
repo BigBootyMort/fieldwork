@@ -690,3 +690,14 @@
 .news-story-alt { color: #ff2e97; margin-right: 0.5rem; text-decoration: none; }
 .news-story-alt:hover { text-decoration: underline; }
 .news-invest-body { font-size: 0.86rem; line-height: 1.55; }
+
+/* ── Time Machine (retrospective) ──────────────────────────────────────── */
+.news-retro-form { display: flex; flex-direction: column; gap: 0.5rem; }
+.news-retro-form input, .news-retro-form select {
+    background: var(--bg, #06070f); border: 1px solid var(--border, #1b2348);
+    color: var(--text, #ccd6f0); padding: 0.45rem 0.55rem; font-size: 0.85rem; border-radius: 0;
+}
+.news-retro-row { display: flex; justify-content: space-between; align-items: center; gap: 0.6rem; }
+.news-retro-src { font-size: 0.78rem; padding: 0.2rem 0; border-bottom: 1px solid var(--border, #1b2348); }
+.news-retro-src a { color: var(--primary, #18e0ff); text-decoration: none; }
+.news-retro-src a:hover { text-decoration: underline; }

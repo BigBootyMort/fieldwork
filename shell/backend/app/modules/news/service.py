@@ -178,7 +178,7 @@ class OllamaClient:
         return []
 
     async def chat(self, system: str, user: str, *, model: str | None = None,
-                   temperature: float = 0.3) -> str:
+                   temperature: float = 0.3, timeout: float = 120) -> str:
         target = model or self.model
         payload = {
             "model":  target,
@@ -189,7 +189,7 @@ class OllamaClient:
             ],
             "options": {"temperature": temperature},
         }
-        r = await self.http.post(f"{self.url}/api/chat", json=payload, timeout=120)
+        r = await self.http.post(f"{self.url}/api/chat", json=payload, timeout=timeout)
 
         if r.status_code == 404:
             # Model not pulled — give an actionable error instead of raw HTTP text
@@ -575,6 +575,114 @@ class NewsService:
             return {"target": target, "error": str(exc),
                     "hint": "Is the Fieldwork backend reachable from the shell?"}
 
+    # ── Time-back intelligence: retrospective topic timeline / Q&A ─────────
+    async def retro_query(self, *, query: str, question: str | None = None,
+                          days_back: int = 30, cap: int = 45) -> dict:
+        """
+        Search the whole archive for a topic across a time range, then have the
+        LLM reconstruct the development timeline (or answer a specific question)
+        grounded in the dated articles. Articles are sampled evenly across the
+        range so both early and recent developments are represented.
+        """
+        _STOP = {"the", "and", "for", "war", "news", "development", "developments",
+                 "latest", "update", "updates", "about", "what", "how", "with"}
+        terms = [t for t in re.findall(r"[a-z0-9]{3,}", query.lower())]
+        # keep meaningful terms but always keep at least the longest two
+        strong = [t for t in terms if t not in _STOP] or terms
+        if not strong:
+            return {"query": query, "found": False, "error": "no usable search terms"}
+
+        hours  = max(1, int(days_back)) * 24
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+        cypher = """
+            MATCH (a:NewsArticle)-[:FROM]->(s:NewsSource)
+            WHERE a.published_at >= $cutoff
+              AND any(t IN $terms WHERE toLower(a.title) CONTAINS t
+                                     OR toLower(coalesce(a.summary,'')) CONTAINS t)
+            OPTIONAL MATCH (a)-[:MENTIONS_COUNTRY]->(c:NewsCountry)
+            WITH a, s, collect(DISTINCT c.iso)[..5] AS countries,
+                 size([t IN $terms WHERE toLower(a.title) CONTAINS t
+                       OR toLower(coalesce(a.summary,'')) CONTAINS t]) AS hits
+            RETURN a.id AS id, a.title AS title, a.url AS url, a.summary AS summary,
+                   toString(a.published_at) AS published_at, a.topic AS topic,
+                   s.name AS source_name, countries, hits
+            ORDER BY a.published_at ASC
+            LIMIT 300
+        """
+        async with self.driver.session() as session:
+            r = await session.run(cypher, cutoff=cutoff, terms=strong)
+            records = await r.fetch(300)
+
+        rows = [{
+            "id": x["id"], "title": x["title"], "url": x["url"],
+            "summary": x["summary"] or "", "published_at": x["published_at"] or "",
+            "topic": x["topic"], "source": x["source_name"],
+            "countries": list(x["countries"] or []), "hits": x["hits"],
+        } for x in records]
+
+        if not rows:
+            return {"query": query, "question": question, "found": False, "matched": 0,
+                    "days_back": days_back,
+                    "brief": f"_No archived articles mention '{query}' in the last "
+                             f"{days_back} days. Poll more, or widen the range._",
+                    "engine": None}
+
+        # Sample evenly across the range if there are more matches than the cap
+        if len(rows) > cap:
+            stride = len(rows) / cap
+            idx = sorted({int(i * stride) for i in range(cap)} | {0, len(rows) - 1})
+            used = [rows[i] for i in idx if i < len(rows)]
+        else:
+            used = rows
+
+        def _d(ts: str) -> str:
+            return (ts or "")[:10]
+
+        digest = "\n".join(
+            f"- [{_d(a['published_at'])}][{a['source']}] {a['title']}"
+            + (f" — {a['summary'][:120].strip()}" if a['summary'] else "")
+            for a in used
+        )
+        date_from, date_to = _d(rows[0]["published_at"]), _d(rows[-1]["published_at"])
+
+        mode = ("Answer this specific question about the topic, grounded only in the "
+                f"articles: \"{question}\"" if question else
+                "Summarise how this topic developed over time.")
+        system = (
+            "You are an intelligence analyst writing a retrospective from dated news "
+            "articles. Ground every claim in the provided articles and cite dates "
+            "(YYYY-MM-DD) and sources. Do not invent events. Use these sections:\n\n"
+            "## Timeline\nKey dated developments in chronological order — each line "
+            "starts with the date.\n\n"
+            "## " + ("Answer" if question else "Assessment") + "\n"
+            + ("A direct, well-supported answer." if question else
+               "The overall trajectory and the current state as of the latest article.")
+            + "\n\nBe concise and specific. No hype."
+        )
+        user = (f"Topic: {query}\nDate range: {date_from} to {date_to} "
+                f"({len(rows)} matching articles, {len(used)} shown)\n{mode}\n\n"
+                f"ARTICLES (chronological):\n{digest}")
+
+        try:
+            # Retro synthesis is heavy (dated timeline over many articles) —
+            # give the local model more headroom than the default 120s.
+            text, engine = await self._chat(system=system, user=user,
+                                            temperature=0.2, max_tokens=1600,
+                                            timeout=300)
+        except Exception as exc:
+            return {"query": query, "found": True, "matched": len(rows),
+                    "brief": f"_Synthesis timed out — try a narrower topic or shorter "
+                             f"range. ({type(exc).__name__})_", "engine": None}
+
+        return {
+            "query": query, "question": question, "found": True,
+            "matched": len(rows), "used": len(used),
+            "range": {"from": date_from, "to": date_to, "days_back": days_back},
+            "brief": text, "engine": engine,
+            "articles": [{k: a[k] for k in ("title", "url", "source",
+                                            "published_at", "topic")} for a in used[-40:]],
+        }
+
     # ── Warm start: poll + pre-generate the brief on backend startup ───────
     async def warm_start(self) -> None:
         """
@@ -644,7 +752,7 @@ class NewsService:
 
     # ── LLM: engine selection (Claude → Ollama fallback) ───────────────────
     async def _chat(self, *, system: str, user: str, temperature: float = 0.3,
-                    max_tokens: int = 1500) -> tuple[str, str]:
+                    max_tokens: int = 1500, timeout: float = 120) -> tuple[str, str]:
         """
         Run a chat completion with graceful degradation:
             1. Claude API   (if ANTHROPIC_API_KEY set)
@@ -677,7 +785,8 @@ class NewsService:
                 log.warning("Claude Code bridge failed (%s) — falling back to Ollama", exc)
 
         # 3. Ollama
-        text = await self.ollama.chat(system=system, user=user, temperature=temperature)
+        text = await self.ollama.chat(system=system, user=user,
+                                      temperature=temperature, timeout=timeout)
         return text, "ollama"
 
     # ── LLM: morning brief & assistant ─────────────────────────────────────

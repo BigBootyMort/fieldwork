@@ -739,6 +739,46 @@ window.NewsView = (function () {
     function closeOverlays() {
         document.getElementById('news-watch-overlay')?.setAttribute('hidden', '');
         document.getElementById('news-invest-overlay')?.setAttribute('hidden', '');
+        document.getElementById('news-retro-overlay')?.setAttribute('hidden', '');
+    }
+
+    // ── Time Machine (retrospective intelligence) ──────────────────────
+    function openRetro() {
+        document.getElementById('news-retro-overlay')?.removeAttribute('hidden');
+        document.getElementById('news-retro-query')?.focus();
+    }
+    async function runRetro() {
+        const query    = document.getElementById('news-retro-query')?.value.trim();
+        const question = document.getElementById('news-retro-question')?.value.trim();
+        const days     = parseInt(document.getElementById('news-retro-range')?.value, 10) || 30;
+        const out      = document.getElementById('news-retro-results');
+        if (!query) { document.getElementById('news-retro-query')?.focus(); return; }
+        if (out) out.innerHTML = '<div class="news-dim" style="padding:1rem">🕰 Searching the archive and reconstructing — 20–60s…</div>';
+        try {
+            const d = await Shell.api('/api/news/retro', {
+                method: 'POST',
+                body: JSON.stringify({ query, question: question || null, days_back: days }),
+            });
+            if (!d.found) {
+                if (out) out.innerHTML = `<div class="news-dim" style="padding:1rem">${escapeHtml(d.brief || 'No matches.')}</div>`;
+                return;
+            }
+            const eng = d.engine ? `<span class="news-engine-badge ${d.engine.startsWith('claude') ? 'claude' : 'ollama'}">${escapeHtml(d.engine)}</span>` : '';
+            const arts = (d.articles || []).slice().reverse().map(a =>
+                `<div class="news-retro-src"><span class="news-dim">${escapeHtml((a.published_at||'').slice(0,10))}</span>
+                 <a href="${escapeHtml(a.url)}" target="_blank" rel="noopener">${escapeHtml(a.title)}</a>
+                 <span class="news-dim">· ${escapeHtml(a.source||'')}</span></div>`).join('');
+            if (out) out.innerHTML = `
+                <div class="news-dim" style="font-size:0.76rem;margin-bottom:0.5rem">
+                    ${d.matched} matches · ${d.range.from} → ${d.range.to} (${d.range.days_back}d) ${eng}
+                </div>
+                <div class="news-brief-body">${renderMarkdown(d.brief || '')}</div>
+                <details style="margin-top:0.75rem"><summary class="news-dim" style="cursor:pointer;font-size:0.8rem">📰 Sources used (${(d.articles||[]).length})</summary>
+                    <div style="margin-top:0.4rem">${arts}</div></details>`;
+            if (state.ttsOn) speak(stripMarkdown(d.brief || ''));
+        } catch (e) {
+            if (out) out.innerHTML = `<div class="news-dim" style="padding:1rem;color:var(--danger,#ff3b5c)">Failed: ${escapeHtml(e.message)}</div>`;
+        }
     }
     function openWatchlist() {
         document.getElementById('news-watch-overlay')?.removeAttribute('hidden');
@@ -982,6 +1022,9 @@ window.NewsView = (function () {
         // Watchlist + stories + investigate
         document.getElementById('news-watch-btn')?.addEventListener('click', openWatchlist);
         document.getElementById('news-watch-close')?.addEventListener('click', closeOverlays);
+        document.getElementById('news-retro-btn')?.addEventListener('click', openRetro);
+        document.getElementById('news-retro-close')?.addEventListener('click', closeOverlays);
+        document.getElementById('news-retro-go')?.addEventListener('click', runRetro);
         document.getElementById('news-stories-btn')?.addEventListener('click', toggleStories);
         document.getElementById('news-invest-close')?.addEventListener('click', closeOverlays);
         document.getElementById('news-watch-form')?.addEventListener('submit', addWatch);

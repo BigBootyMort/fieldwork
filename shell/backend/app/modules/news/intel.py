@@ -160,6 +160,71 @@ async def embed_text(http: httpx.AsyncClient, ollama_url: str, model: str, text:
     return []
 
 
+# ── Embedding-based topic classification (zero-shot via anchor similarity) ──
+
+# Short descriptive anchors per topic; an article's embedding is compared to
+# each anchor's embedding and assigned the closest one (above a threshold).
+TOPIC_ANCHORS: dict[str, str] = {
+    "war":       "armed conflict, war, military offensive, airstrikes, troops, missiles, invasion, front line",
+    "disaster":  "natural disaster, earthquake, flood, hurricane, wildfire, tsunami, casualties, evacuation",
+    "crisis":    "political crisis, coup, mass protests, uprising, famine, refugees, state of emergency",
+    "security":  "cybersecurity, data breach, ransomware, hacking, malware, vulnerability, cyberattack",
+    "politics":  "government, elections, parliament, diplomacy, legislation, sanctions, foreign policy",
+    "business":  "economy, markets, company earnings, trade, finance, inflation, central bank, jobs",
+    "tech":      "technology, artificial intelligence, software, chips, startups, gadgets, internet",
+    "health":    "health, disease outbreak, pandemic, hospitals, medicine, vaccine, public health",
+    "sport":     "sports, football, match, tournament, championship, athletes, Olympics",
+    "world":     "general world news and current events",
+}
+
+_anchor_cache: dict[str, list[float]] = {}
+
+
+async def _ensure_anchors(http: httpx.AsyncClient, ollama_url: str, model: str) -> dict:
+    """Embed the topic anchors once and cache them."""
+    if _anchor_cache:
+        return _anchor_cache
+    for topic, desc in TOPIC_ANCHORS.items():
+        vec = await embed_text(http, ollama_url, model, desc)
+        if vec:
+            _anchor_cache[topic] = vec
+    return _anchor_cache
+
+
+async def classify_topics(http: httpx.AsyncClient, ollama_url: str, model: str,
+                          items: list[dict], threshold: float = 0.55) -> dict:
+    """
+    For each item ({id, title, summary}) return {id: {"topic", "score", "embedding"}}
+    using cosine similarity to the topic anchors. Articles below threshold keep
+    their existing (keyword) topic — signalled by topic=None.
+    """
+    anchors = await _ensure_anchors(http, ollama_url, model)
+    if not anchors:
+        return {}
+    out: dict = {}
+    sem = asyncio.Semaphore(6)
+
+    async def _one(it):
+        async with sem:
+            text = (it.get("title", "") + ". " + (it.get("summary", "") or ""))[:512]
+            vec = await embed_text(http, ollama_url, model, text)
+            if not vec:
+                return
+            best_topic, best_score = None, 0.0
+            for topic, av in anchors.items():
+                sc = _cosine(vec, av)
+                if sc > best_score:
+                    best_topic, best_score = topic, sc
+            out[it["id"]] = {
+                "topic": best_topic if best_score >= threshold else None,
+                "score": round(best_score, 3),
+                "embedding": vec,
+            }
+
+    await asyncio.gather(*[_one(it) for it in items])
+    return out
+
+
 def _cosine(a: list[float], b: list[float]) -> float:
     if not a or not b or len(a) != len(b):
         return 0.0

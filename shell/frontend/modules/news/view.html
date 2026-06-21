@@ -20,6 +20,7 @@
         <div class="news-toolbar-group" style="flex:1"></div>
         <div class="news-toolbar-group">
             <button id="news-watch-btn" class="news-btn" title="Manage your watchlist (entities, topics, countries)">🎯 Watchlist</button>
+            <button id="news-retro-btn" class="news-btn" title="Time-back intelligence — trace a topic's development or ask about the past">🕰 Time Machine</button>
             <button id="news-stories-btn" class="news-btn" title="Group near-duplicate articles into stories">🗂 Stories</button>
             <button id="news-poll-btn"  class="news-btn" title="Pull latest articles from all RSS feeds">🔄 Poll feeds</button>
             <button id="news-brief-btn" class="news-btn news-btn-primary"
@@ -48,6 +49,36 @@
                 <button type="submit" class="news-btn news-btn-primary">＋ Add</button>
             </form>
             <div id="news-watch-list" class="news-watch-list"></div>
+        </div>
+    </div>
+
+    <!-- Time Machine overlay -->
+    <div id="news-retro-overlay" class="news-overlay" hidden>
+        <div class="news-overlay-card news-overlay-card--wide">
+            <div class="news-overlay-head">
+                <span>🕰 Time Machine — retrospective intelligence</span>
+                <button id="news-retro-close" class="news-icon-btn" title="Close">✕</button>
+            </div>
+            <p class="news-dim" style="font-size:0.78rem;margin:0 0 0.6rem">
+                Search the archive across time. Leave the question blank to get a development
+                timeline, or ask something specific (e.g. "when did the ceasefire talks start?").
+            </p>
+            <div class="news-retro-form">
+                <input id="news-retro-query" type="text" placeholder="Topic — e.g. Ukraine Russia war" maxlength="200">
+                <input id="news-retro-question" type="text" placeholder="Optional question (blank = summarize developments)" maxlength="400">
+                <div class="news-retro-row">
+                    <label class="news-dim" style="font-size:0.78rem">Look back:
+                        <select id="news-retro-range">
+                            <option value="7">7 days</option>
+                            <option value="30" selected>30 days</option>
+                            <option value="90">90 days</option>
+                            <option value="365">1 year</option>
+                        </select>
+                    </label>
+                    <button id="news-retro-go" class="news-btn news-btn-primary">🕰 Reconstruct</button>
+                </div>
+            </div>
+            <div id="news-retro-results" style="margin-top:0.85rem"></div>
         </div>
     </div>
 
