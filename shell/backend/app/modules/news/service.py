@@ -257,8 +257,17 @@ class NewsService:
         total_new = 0
         for src in self.sources():
             try:
-                resp = await self.http.get(src.url, timeout=25,
-                                           headers={"User-Agent": "Runi Shell/0.1"})
+                # Browser-like UA + follow redirects — several outlets (BBC,
+                # http→https hops) 403 or redirect bot/default user agents.
+                resp = await self.http.get(
+                    src.url, timeout=25, follow_redirects=True,
+                    headers={
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                                      "AppleWebKit/537.36 (KHTML, like Gecko) "
+                                      "Chrome/124.0.0.0 Safari/537.36",
+                        "Accept": "application/rss+xml, application/xml, text/xml, */*",
+                    },
+                )
                 resp.raise_for_status()
                 items = _parse_feed(resp.content)
             except Exception as exc:

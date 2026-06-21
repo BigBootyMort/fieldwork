@@ -23,14 +23,18 @@ class NewsSource:
 
 
 DEFAULT_SOURCES: list[NewsSource] = [
-    # Wire services
-    NewsSource("reuters_world",  "Reuters — World",
-               "https://www.reutersagency.com/feed/?best-regions=world&post_type=best", 1.0, "world"),
+    # Wire / aggregators
+    # Reuters killed its public RSS — use Google News' World section as a
+    # reliable multi-source aggregator in its place.
+    NewsSource("google_world",   "Google News — World",
+               "https://news.google.com/rss/headlines/section/topic/WORLD?hl=en-US&gl=US&ceid=US:en", 0.9, "world"),
     NewsSource("ap_top",         "Associated Press — Top News",
                "https://feeds.npr.org/1004/rss.xml", 1.0, "world"),
     # Major papers of record
     NewsSource("bbc_world",      "BBC — World",
-               "http://feeds.bbci.co.uk/news/world/rss.xml", 1.0, "world"),
+               "https://feeds.bbci.co.uk/news/world/rss.xml", 1.0, "world"),
+    NewsSource("nyt_world",      "New York Times — World",
+               "https://rss.nytimes.com/services/xml/rss/nyt/World.xml", 0.9, "world"),
     NewsSource("guardian_world", "The Guardian — World",
                "https://www.theguardian.com/world/rss", 0.9, "world"),
     NewsSource("aljazeera",      "Al Jazeera — Top",
