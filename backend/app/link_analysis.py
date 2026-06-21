@@ -78,7 +78,8 @@ async def _duplicate_candidates(graph_db, limit: int = 30) -> list[dict]:
               AND a.name <> b.name
               AND ( toLower(a.name) CONTAINS toLower(b.name)
                  OR toLower(b.name) CONTAINS toLower(a.name) )
-            RETURN labels(a) AS labels, a.name AS a_name, b.name AS b_name
+            RETURN labels(a) AS labels, a.name AS a_name, b.name AS b_name,
+                   a.id AS a_id, b.id AS b_id
             LIMIT $limit
             """, limit=limit,
         )
@@ -86,7 +87,8 @@ async def _duplicate_candidates(graph_db, limit: int = 30) -> list[dict]:
         for rec in await r.fetch(limit):
             labs = [l for l in (rec["labels"] or []) if l != "Entity"]
             out.append({"label": (labs or ["Entity"])[0],
-                        "a": rec["a_name"], "b": rec["b_name"]})
+                        "a": rec["a_name"], "b": rec["b_name"],
+                        "a_id": rec["a_id"], "b_id": rec["b_id"]})
         return out
 
 

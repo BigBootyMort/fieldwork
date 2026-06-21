@@ -22501,13 +22501,29 @@ async function runLinkAnalysis() {
              <span class="text-small text-dim">${esc((s.shared_by||[]).join('  +  '))}</span></div></div>`).join('');
         const dupes = (d.duplicates || []).map(x =>
             `<div class="finding-item" style="border-color:var(--warning)"><div class="finding-type">possible duplicate · ${esc(x.label)}</div>
-             <div class="finding-content">"${esc(x.a)}" ≈ "${esc(x.b)}"</div></div>`).join('');
+             <div class="finding-content" style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem">
+               <span>"${esc(x.a)}" ≈ "${esc(x.b)}"</span>
+               <button class="btn btn-outline btn-sm" onclick="mergeEntities('${esc(x.a_id)}','${esc(x.b_id)}','${esc(x.b)}','${esc(x.a)}')">🪄 Merge</button>
+             </div></div>`).join('');
         body.innerHTML =
             (d.analysis ? `<div style="line-height:1.6;margin-bottom:1rem">${_orchMd(d.analysis)}</div>` : '') +
             (shared ? `<div class="card-title" style="font-size:0.85rem;margin:0.5rem 0">🔗 Shared entities</div>${shared}` : '') +
             (dupes ? `<div class="card-title" style="font-size:0.85rem;margin:0.5rem 0">🪞 Duplicate candidates</div>${dupes}` : '') +
             (!shared && !dupes ? '<div class="text-dim">No cross-entity links yet — run a few investigations first.</div>' : '');
     } catch (e) { body.innerHTML = `<span style="color:var(--danger)">Failed: ${esc(e.message)}</span>`; }
+}
+
+async function mergeEntities(keepId, mergeId, mergeName, keepName) {
+    if (!confirm(`Merge "${mergeName}" into "${keepName}"? This moves all its links onto "${keepName}" and deletes the duplicate.`)) return;
+    try {
+        const r = await apiFetch('/investigate/merge', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ keep_id: keepId, merge_id: mergeId }),
+        });
+        if (r.error) { showToast('Merge failed: ' + r.error, 'error'); return; }
+        showToast(`Merged into "${r.name || keepName}"`, 'success');
+        runLinkAnalysis();   // refresh — duplicate should be gone
+    } catch (e) { showToast('Merge failed: ' + e.message, 'error'); }
 }
 
 async function monitorCurrent() {

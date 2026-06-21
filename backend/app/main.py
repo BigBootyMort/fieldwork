@@ -140,7 +140,8 @@ from crawlers.geocode import geocode, reverse_geocode
 from orchestrator import (investigate as orchestrate_investigation,
                           detect_type as orch_detect_type,
                           deep_investigate as orch_deep_investigate)
-from graph_intel import persist_investigation, get_investigation_subgraph
+from graph_intel import (persist_investigation, get_investigation_subgraph,
+                         merge_entities as gi_merge_entities)
 from link_analysis import analyze as analyze_links
 from vision_intel import analyze_image as vision_analyze_image
 import inv_monitor
@@ -11661,6 +11662,21 @@ async def monitor_run_now(mon_id: str):
 async def monitor_alerts(limit: int = 100):
     """Change alerts raised by investigation monitors."""
     return {"alerts": inv_monitor.list_alerts(limit)}
+
+
+class MergeRequest(BaseModel):
+    keep_id:  str
+    merge_id: str
+
+
+@app.post("/investigate/merge")
+async def investigate_merge(req: MergeRequest):
+    """Entity resolution: merge a duplicate node into the kept node (APOC)."""
+    if not req.keep_id or not req.merge_id:
+        raise HTTPException(400, "keep_id and merge_id required")
+    res = await gi_merge_entities(graph_db, req.keep_id.strip(), req.merge_id.strip())
+    _audit("EntityMerge", f"{req.merge_id}->{req.keep_id}", detail=str(res.get("merged", res.get("error"))))
+    return res
 
 
 @app.post("/investigate/link-analysis")

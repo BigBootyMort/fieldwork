@@ -257,6 +257,46 @@ async def persist_investigation(graph_db, result: dict,
             "investigation_id": inv_id, "case_id": case_id}
 
 
+async def merge_entities(graph_db, keep_id: str, merge_id: str) -> dict:
+    """
+    Merge the `merge_id` node into `keep_id` (entity resolution): all of the
+    duplicate's relationships are moved onto the kept node, source provenance is
+    unioned, and the duplicate is deleted. Uses APOC (installed in this Neo4j).
+    """
+    if not graph_db or not getattr(graph_db, "driver", None):
+        return {"error": "graph unavailable"}
+    if keep_id == merge_id:
+        return {"error": "keep_id and merge_id are the same"}
+    try:
+        async with graph_db.driver.session() as s:
+            # Union the source lists onto the kept node first (mergeNodes
+            # 'discard' keeps the first node's scalars, so do sources manually).
+            await s.run(
+                """
+                MATCH (k {id:$keep}), (d {id:$dup})
+                SET k.sources = CASE WHEN k.sources IS NULL THEN d.sources
+                    ELSE k.sources + [x IN coalesce(d.sources, []) WHERE NOT x IN k.sources] END
+                """, keep=keep_id, dup=merge_id,
+            )
+            r = await s.run(
+                """
+                MATCH (keep {id:$keep}), (dup {id:$dup})
+                WHERE keep <> dup
+                CALL apoc.refactor.mergeNodes([keep, dup],
+                     {properties:'discard', mergeRels:true}) YIELD node
+                RETURN node.id AS id, labels(node) AS labels, node.name AS name
+                """, keep=keep_id, dup=merge_id,
+            )
+            rec = await r.single()
+    except Exception as exc:
+        log.warning("merge_entities failed: %s", exc)
+        return {"error": str(exc)}
+    if not rec:
+        return {"error": "one or both nodes not found"}
+    return {"merged": True, "kept_id": rec["id"], "removed_id": merge_id,
+            "name": rec["name"], "labels": [l for l in (rec["labels"] or []) if l != "Entity"]}
+
+
 async def get_investigation_subgraph(graph_db, target_id: str, depth: int = 1) -> dict:
     """Return nodes + edges around a target for graph rendering."""
     if not graph_db or not getattr(graph_db, "driver", None):
