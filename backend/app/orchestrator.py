@@ -216,8 +216,13 @@ def _digest(value: str, ttype: str, results: dict) -> str:
     return "\n".join(parts)
 
 
-async def investigate(value: str, ttype: str = "auto", graph_db=None) -> dict:
-    """Run the full orchestrated investigation and return the brief + raw data."""
+async def investigate(value: str, ttype: str = "auto", graph_db=None,
+                      synthesize: bool = True) -> dict:
+    """Run the full orchestrated investigation and return the brief + raw data.
+
+    synthesize=False skips the LLM brief (fan-out + raw results only) — used by
+    deep_investigate so each hop is fast; one brief is written over the whole graph.
+    """
     value = (value or "").strip()
     if not value:
         return {"error": "empty target"}
@@ -230,6 +235,10 @@ async def investigate(value: str, ttype: str = "auto", graph_db=None) -> dict:
 
     pairs = await asyncio.gather(*[_safe(n, c) for n, c in tasks])
     results = dict(pairs)
+
+    if not synthesize:
+        return {"target": value, "type": ttype, "tools_run": list(results.keys()),
+                "engine": None, "brief": "", "results": results}
 
     # Synthesise: Claude (API → subscription bridge) → Ollama fallback.
     digest = _digest(value, ttype, results)
@@ -260,4 +269,156 @@ async def investigate(value: str, ttype: str = "auto", graph_db=None) -> dict:
         "engine":    engine,
         "brief":     brief,
         "results":   results,
+    }
+
+
+# ── Recursive deep investigation (auto-pivot + graph expansion) ─────────────
+
+_DEEP_SYSTEM = """\
+You are a senior OSINT analyst. A recursive investigation auto-pivoted from a
+seed target across several hops, expanding a knowledge graph. From the per-node
+findings, write a concise brief:
+
+## Overview
+What the expanded picture shows; the seed and how far it reached.
+
+## Key entities discovered
+The most important entities surfaced beyond the seed, and why they matter.
+
+## Risk & red flags
+Sanctions/breaches/adverse/threat-intel across the whole expansion. Severity-tag.
+
+## Strongest leads
+3-5 specific next moves.
+
+Cite tools/entities. Be specific and terse."""
+
+
+def _pivots(results: dict, max_branch: int) -> list[tuple[str, str]]:
+    """Extract high-signal (value, type) pivots from one investigation's results."""
+    out: list[tuple[str, str]] = []
+    seen: set[str] = set()
+
+    def add(val, typ):
+        v = (val or "").strip()
+        k = v.lower()
+        if v and k not in seen and "redact" not in k:
+            seen.add(k); out.append((v, typ))
+
+    for tool, res in (results or {}).items():
+        if not isinstance(res, dict) or res.get("error"):
+            continue
+        t = tool.lower()
+        if "hunter" in t:
+            for em in (res.get("emails") or [])[:max_branch]:
+                add(em if isinstance(em, str) else em.get("value", ""), "email")
+        if "rdap" in t or "whois" in t:
+            add(res.get("registrant_email", ""), "email")
+            if res.get("registrant_org"):
+                add(res["registrant_org"], "company")
+        if "etherscan" in t:
+            for tx in (res.get("transactions") or [])[:max_branch]:
+                add(tx.get("counterparty", ""), "crypto_eth")
+        if "companies house" in t:
+            for o in (res.get("officers") or [])[:max_branch]:
+                add(o.get("name", ""), "name")
+            for b in (res.get("beneficial_owners") or [])[:max_branch]:
+                add(b.get("name", ""), "name")
+    return out[:max_branch]
+
+
+def _node_summary(value: str, ttype: str, results: dict) -> str:
+    """One compact line of the most notable findings for a node."""
+    bits = []
+    for tool, res in (results or {}).items():
+        if not isinstance(res, dict) or res.get("error"):
+            continue
+        t = tool.lower()
+        if ("sanction" in t or "ofac" in t) and res.get("found"):
+            bits.append(f"SANCTIONS:{res.get('total', '?')}")
+        if "hibp" in t and res.get("breaches"):
+            bits.append(f"breaches:{len(res['breaches'])}")
+        if "court" in t and res.get("found"):
+            bits.append(f"court:{res.get('total', '?')}")
+        if "otx" in t and res.get("malicious"):
+            bits.append(f"threat:{res.get('pulse_count', 0)}pulses")
+        if "cert" in t and res.get("subdomains"):
+            bits.append(f"subdomains:{len(res['subdomains'])}")
+    return f"[{ttype}] {value} — " + (", ".join(bits) if bits else "no major flags")
+
+
+async def deep_investigate(seed: str, ttype: str = "auto", graph_db=None,
+                           max_hops: int = 1, max_branch: int = 4,
+                           global_cap: int = 8) -> dict:
+    """
+    BFS auto-pivot from a seed: each node is fan-out + persisted (no per-node
+    brief); high-signal entities become the next hop. One brief is synthesised
+    over the whole expansion. Bounded by max_hops / max_branch / global_cap.
+    """
+    from graph_intel import persist_investigation as _persist
+
+    seed = (seed or "").strip()
+    if not seed:
+        return {"error": "empty seed"}
+    if ttype in (None, "", "auto"):
+        ttype = detect_type(seed)
+
+    visited: set[str] = set()
+    summaries: list[str] = []
+    investigated: list[dict] = []
+    frontier: list[tuple[str, str, int]] = [(seed, ttype, 0)]
+    seed_target_id = None
+
+    while frontier and len(visited) < global_cap:
+        value, vtype, hop = frontier.pop(0)
+        key = value.lower()
+        if key in visited:
+            continue
+        visited.add(key)
+
+        res = await investigate(value, vtype, graph_db=graph_db, synthesize=False)
+        if res.get("error"):
+            continue
+        try:
+            g = await _persist(graph_db, res, case_id=None)
+            if hop == 0:
+                seed_target_id = g.get("target_id")
+        except Exception as exc:
+            log.debug("deep persist failed: %s", exc)
+
+        summaries.append(("  " * hop) + _node_summary(value, res.get("type", vtype), res.get("results", {})))
+        investigated.append({"target": value, "type": res.get("type", vtype), "hop": hop})
+
+        if hop < max_hops:
+            for pv, pt in _pivots(res.get("results", {}), max_branch):
+                if pv.lower() not in visited and len(visited) + len(frontier) < global_cap:
+                    frontier.append((pv, pt, hop + 1))
+
+    # One synthesis over the whole expansion
+    digest = (f"SEED: {seed} ({ttype})\nHOPS: {max_hops}\n"
+              f"NODES INVESTIGATED ({len(investigated)}):\n" + "\n".join(summaries))
+    brief, engine = "", None
+    async with httpx.AsyncClient(timeout=200) as client:
+        try:
+            brief, engine = await claude_complete(
+                system=_DEEP_SYSTEM, user=digest, http=client, max_tokens=2000,
+            )
+        except NoClaudeError:
+            try:
+                r = await client.post(
+                    f"{_OLLAMA_URL}/api/generate",
+                    json={"model": _OLLAMA_MODEL, "system": _DEEP_SYSTEM,
+                          "prompt": digest, "stream": False},
+                )
+                r.raise_for_status()
+                brief, engine = r.json().get("response", "").strip(), "ollama"
+            except Exception as exc:
+                brief, engine = f"_Synthesis failed: {exc}_", None
+        except Exception as exc:
+            brief, engine = f"_Synthesis failed: {exc}_", None
+
+    return {
+        "seed": seed, "type": ttype, "max_hops": max_hops,
+        "investigated": investigated, "node_count": len(investigated),
+        "seed_target_id": seed_target_id, "engine": engine, "brief": brief,
     }

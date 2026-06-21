@@ -137,7 +137,9 @@ from crawlers.wikidata import lookup_wikidata
 from crawlers.etherscan import trace_eth_address
 from crawlers.maritime import track_vessel
 from crawlers.geocode import geocode, reverse_geocode
-from orchestrator import investigate as orchestrate_investigation, detect_type as orch_detect_type
+from orchestrator import (investigate as orchestrate_investigation,
+                          detect_type as orch_detect_type,
+                          deep_investigate as orch_deep_investigate)
 from graph_intel import persist_investigation, get_investigation_subgraph
 from link_analysis import analyze as analyze_links
 from vision_intel import analyze_image as vision_analyze_image
@@ -11584,6 +11586,32 @@ async def investigate_orchestrate(req: OrchestrateRequest):
     _audit("Orchestrate", req.target[:80],
            detail=f"type={res.get('type')} tools={len(res.get('tools_run', []))} "
                   f"engine={res.get('engine')} graph={res.get('graph', {}).get('nodes', 0)}n")
+    return res
+
+
+class DeepInvestigateRequest(BaseModel):
+    target:     str
+    type:       Optional[str] = "auto"
+    max_hops:   int = 1        # 1 = seed + direct pivots
+    max_branch: int = 4        # pivots followed per node
+
+
+@app.post("/investigate/deep")
+async def investigate_deep(req: DeepInvestigateRequest):
+    """
+    Recursive deep investigation: BFS auto-pivot from a seed (email→domain→
+    people→…), expanding the knowledge graph, with one synthesized brief over
+    the whole expansion. Bounded by max_hops / max_branch (global cap 8 nodes).
+    """
+    if not req.target or len(req.target) > 300:
+        raise HTTPException(400, "target required")
+    res = await orch_deep_investigate(
+        req.target.strip(), req.type or "auto", graph_db=graph_db,
+        max_hops=max(1, min(req.max_hops, 2)),
+        max_branch=max(1, min(req.max_branch, 6)),
+    )
+    _audit("DeepInvestigate", req.target[:80],
+           detail=f"hops={req.max_hops} nodes={res.get('node_count')} engine={res.get('engine')}")
     return res
 
 

@@ -4832,7 +4832,10 @@
                             </select>
                         </label>
                         <span id="orch-detected" class="text-small" style="color:var(--accent)"></span>
-                        <button class="btn btn-primary" onclick="runOrchestrate()" style="margin-left:auto">🔬 Investigate</button>
+                        <span style="margin-left:auto;display:flex;gap:0.5rem">
+                            <button class="btn btn-outline" onclick="runDeepInvestigate()" title="Recursively auto-pivot from this target (needs API keys / public WHOIS to go deep)">🕳 Deep</button>
+                            <button class="btn btn-primary" onclick="runOrchestrate()">🔬 Investigate</button>
+                        </span>
                     </div>
                     <div id="orch-status" class="text-small text-dim" style="margin-top:0.75rem;display:none"></div>
                     <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.75rem;border-top:1px solid var(--border);padding-top:0.75rem">
@@ -22402,6 +22405,39 @@ async function runOrchestrate() {
         if (toolsWrap) toolsWrap.style.display = 'block';
     } catch (e) {
         if (status) status.innerHTML = `<span style="color:var(--danger)">Failed: ${esc(e.message)}</span>`;
+    }
+}
+
+// ── Recursive deep investigation ────────────────────────────────────────────
+async function runDeepInvestigate() {
+    const target = document.getElementById('orch-target')?.value.trim();
+    const type   = document.getElementById('orch-type')?.value || 'auto';
+    if (!target) { alert('Enter a target'); return; }
+    const status = document.getElementById('orch-status');
+    const briefCard = document.getElementById('orch-brief');
+    const briefBody = document.getElementById('orch-brief-body');
+    document.getElementById('orch-tools').style.display = 'none';
+    if (status) { status.style.display = 'block'; status.innerHTML = '🕳 Deep investigation — auto-pivoting across hops, this can take several minutes…'; }
+    if (briefCard) briefCard.style.display = 'none';
+    try {
+        const d = await apiFetch('/investigate/deep', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ target, type, max_hops: 1, max_branch: 3 }),
+        });
+        if (status) status.style.display = 'none';
+        window._lastOrch = { target, target_id: d.seed_target_id, nodes: d.node_count };
+        const engEl = document.getElementById('orch-engine');
+        if (engEl) {
+            const map = { 'claude': '✦ Claude', 'claude-code': '✦ Claude Code', 'ollama': '⌂ Ollama' };
+            engEl.innerHTML = d.engine ? `<span style="font-size:0.7rem;border:1px solid var(--accent);color:var(--accent);padding:1px 7px;border-radius:10px">${map[d.engine]||d.engine}</span>` : '';
+        }
+        const trail = (d.investigated || []).map(n => `${'· '.repeat(n.hop)}${esc(n.target)} <span class="text-small text-dim">[${esc(n.type)}]</span>`).join('<br>');
+        if (briefBody) briefBody.innerHTML =
+            `<div class="text-small text-dim" style="margin-bottom:0.75rem">🕳 Expanded ${d.node_count} node(s) from <strong>${esc(d.seed)}</strong>:<br>${trail}</div>` +
+            _orchMd(d.brief || '_No brief._');
+        if (briefCard) briefCard.style.display = 'block';
+    } catch (e) {
+        if (status) status.innerHTML = `<span style="color:var(--danger)">Deep investigation failed: ${esc(e.message)}</span>`;
     }
 }
 
