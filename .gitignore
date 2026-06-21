@@ -28,6 +28,12 @@ env/
 # ── Docker / data volumes ─────────────────────────────────────────
 *.log
 
+# ── Runtime databases / vector stores (binary churn, not source) ──
+ruvector.db
+**/ruvector.db
+*.db-wal
+*.db-shm
+
 # ── OS / editor ───────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
