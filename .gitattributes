@@ -1,0 +1,18 @@
+# Normalise line endings — store LF in the repo, check out native on each OS.
+* text=auto eol=lf
+
+# Binary files Git must never touch.
+*.db    binary
+*.pem   binary
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.webp  binary
+*.pdf   binary
+*.ico   binary
+*.woff  binary
+*.woff2 binary
+
+# Windows launcher stays CRLF.
+*.bat   text eol=crlf
