@@ -10,6 +10,7 @@ every poll without adding latency-heavy LLM calls per article.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import math
 import re

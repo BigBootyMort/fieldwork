@@ -41,7 +41,7 @@ from .llm      import (
 )
 from .intel    import (
     extract_entities, match_watchlist, cluster_articles, embed_text,
-    get_last_brief_at, set_last_brief_at,
+    classify_topics, get_last_brief_at, set_last_brief_at,
 )
 
 log = logging.getLogger("news.service")
@@ -255,6 +255,7 @@ class NewsService:
         await self.upsert_sources()
         per_source: dict[str, int] = {}
         total_new = 0
+        new_articles: list[dict] = []   # for embedding-based topic enrichment
         for src in self.sources():
             try:
                 # Browser-like UA + follow redirects — several outlets (BBC,
@@ -278,8 +279,18 @@ class NewsService:
             for it in items:
                 if await self._persist_article(src, it):
                     new_count += 1
+                    new_articles.append({
+                        "id": _article_id(it["url"][:600]),
+                        "title": it["title"][:400],
+                        "summary": (it.get("summary") or "")[:1200],
+                    })
             per_source[src.id] = new_count
             total_new += new_count
+
+        # Embedding-based topic refinement for the new articles. Also stores the
+        # embedding on the node so story clustering reuses it (no lazy embed).
+        if new_articles:
+            await self._enrich_topics(new_articles)
 
         # Invalidate caches so the next /heatmap reflects new data
         self._heatmap_cache.clear()
@@ -288,6 +299,46 @@ class NewsService:
         await self.bus.publish("news:polled", {"new": total_new, "per_source": per_source})
         return {"new_total": total_new, "per_source": per_source,
                 "polled_at": datetime.utcnow().isoformat() + "Z"}
+
+    async def _enrich_topics(self, new_articles: list[dict]) -> None:
+        """
+        Embed new articles and refine their topic via anchor similarity, storing
+        both the refined topic and the embedding on the node. Best-effort: a
+        failure here never breaks the poll. Opt out with NEWS_TOPIC_EMBED=0.
+        """
+        import os
+        if os.getenv("NEWS_TOPIC_EMBED", "1").lower() in ("0", "false", "off", "no"):
+            return
+        try:
+            embed_model = getattr(self.settings, "OLLAMA_EMBED_MODEL", "") or "nomic-embed-text"
+            results = await classify_topics(
+                self.http, self.ollama.url, embed_model, new_articles,
+            )
+            if not results:
+                return
+            updated = 0
+            async with self.driver.session() as session:
+                for aid, info in results.items():
+                    emb = info.get("embedding")
+                    topic = info.get("topic")
+                    # Always store the embedding; only overwrite topic when the
+                    # classifier is confident (topic is non-null above threshold).
+                    await session.run(
+                        """
+                        MATCH (a:NewsArticle {id:$id})
+                        SET a.embedding = $emb
+                        SET a.topic = CASE WHEN $topic IS NULL THEN a.topic ELSE $topic END,
+                            a.topic_weight = CASE WHEN $topic IS NULL THEN a.topic_weight
+                                                  ELSE $tw END
+                        """,
+                        id=aid, emb=emb, topic=topic,
+                        tw=float(TOPIC_WEIGHTS.get(topic, 1.0)) if topic else 1.0,
+                    )
+                    if topic:
+                        updated += 1
+            log.info("news topic-enrich: embedded %d, reclassified %d", len(results), updated)
+        except Exception as exc:
+            log.warning("news topic-enrich failed: %s", exc)
 
     async def _persist_article(self, src: NewsSource, it: dict) -> bool:
         """Insert one article. Returns True if it was new.
