@@ -55,7 +55,7 @@ def _node_size(degree: int) -> int:
 
 def _fmt_node(node_id: str, label: str, props: dict, degree: int) -> dict:
     """Format a single node into the Cytoscape element envelope."""
-    from .pivot import _display  # reuse the display-value picker
+    from pivot import _display  # reuse the display-value picker
     display = _display(props)[:40] or node_id[:40]
     return {
         "data": {
@@ -85,7 +85,7 @@ async def subgraph_around(
     Reuses pivot_from() for traversal, then fetches all edges between
     collected nodes in a single query.
     """
-    from .pivot import pivot_from
+    from pivot import pivot_from
 
     depth = max(1, min(depth, 3))
     limit = max(10, min(limit, 300))
@@ -172,7 +172,7 @@ async def expand_node(
     1-hop expansion from *entity_id*.
     Returns nodes + edges suitable for merging into an existing canvas.
     """
-    from .pivot import pivot_from
+    from pivot import pivot_from
 
     data = await pivot_from(graph_db, entity_id, label=label, depth=1, max_per_hop=80)
     if not data["source"]:

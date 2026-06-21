@@ -1,0 +1,414 @@
+<div id="markets-root">
+
+    <!-- ── Toolbar ───────────────────────────────────────────────────── -->
+    <div id="markets-toolbar">
+        <div class="mkt-toolbar-left">
+            <!-- Tab switcher -->
+            <div class="mkt-tab-group" role="tablist">
+                <button class="mkt-tab active" data-tab="watchlist" role="tab">Watchlist</button>
+                <button class="mkt-tab" data-tab="portfolio" role="tab">Portfolio</button>
+                <button class="mkt-tab" data-tab="analysis" role="tab">🤖 AI Analysis</button>
+                <button class="mkt-tab" data-tab="screener" role="tab">🔍 Screener</button>
+                <button class="mkt-tab" data-tab="account" role="tab">📊 Account</button>
+                <button class="mkt-tab" data-tab="research" role="tab">🔬 Deep Research</button>
+            </div>
+            <!-- Watchlist-only filters (hidden in portfolio tab) -->
+            <div class="mkt-filter-group" id="mkt-watchlist-filters" role="group">
+                <button class="mkt-filter-btn active" data-filter="all">All</button>
+                <button class="mkt-filter-btn" data-filter="stocks">Equities &amp; ETFs</button>
+                <button class="mkt-filter-btn" data-filter="crypto">Crypto</button>
+            </div>
+        </div>
+
+        <div class="mkt-toolbar-right">
+            <!-- Watchlist: search + select add form -->
+            <form id="markets-add-form" class="mkt-add-form" autocomplete="off">
+                <div class="mkt-search-wrap" id="mkt-search-wrap">
+                    <span class="mkt-search-icon">⌕</span>
+                    <input id="markets-add-input" type="text"
+                           placeholder="Add: AAPL, Bitcoin, VWCE…"
+                           spellcheck="false" maxlength="50"
+                           autocomplete="off" role="combobox"
+                           aria-expanded="false" aria-haspopup="listbox"
+                           aria-controls="markets-search-dropdown">
+                    <button type="button" id="mkt-search-clear"
+                            class="mkt-search-clear mkt-hidden"
+                            title="Clear" tabindex="-1">✕</button>
+                    <ul id="markets-search-dropdown" class="mkt-search-drop"
+                        role="listbox" aria-label="Symbol suggestions"></ul>
+                </div>
+            </form>
+
+            <!-- Portfolio: track-position button (swaps with form) -->
+            <button id="mkt-track-btn" class="mkt-btn mkt-btn-track" style="display:none">[+] TRACK.POSITION</button>
+
+            <span id="markets-last-updated" class="mkt-last-updated"></span>
+            <button id="markets-refresh-btn" class="mkt-btn mkt-btn-icon" title="Refresh prices">↻</button>
+        </div>
+    </div>
+
+    <!-- ── Watchlist pane ───────────────────────────────────────────── -->
+    <div id="markets-watchlist-pane" class="mkt-pane">
+        <div id="markets-grid" class="mkt-grid">
+            <div class="mkt-loading">Loading market data…</div>
+        </div>
+    </div>
+
+    <!-- ── Portfolio pane ───────────────────────────────────────────── -->
+    <div id="markets-portfolio-pane" class="mkt-pane" style="display:none">
+
+        <!-- Empty state -->
+        <div id="mkt-portfolio-empty" class="mkt-portfolio-empty">
+            <div class="mkt-empty-icon">📊</div>
+            <p>No positions tracked yet.</p>
+            <p class="mkt-empty-hint">
+                Click <strong>＋ Track position</strong> to monitor a holding.
+                <br>Enter what you invested and track its value from there.
+            </p>
+        </div>
+
+        <!-- Content: chart + position cards -->
+        <div id="mkt-portfolio-content" style="display:none">
+
+            <!-- Combined performance chart -->
+            <div class="mkt-chart-wrap">
+                <div class="mkt-chart-header">
+                    <div class="mkt-chart-meta">
+                        <span class="mkt-chart-label" id="mkt-chart-label">Portfolio · 7D</span>
+                        <span id="mkt-chart-total" class="mkt-chart-total"></span>
+                    </div>
+                    <!-- Time range selector -->
+                    <div class="mkt-range-selector" role="group" aria-label="Chart range">
+                        <button class="mkt-range-btn active" data-range="7d"  title="Last 7 days">7D</button>
+                        <button class="mkt-range-btn"        data-range="1mo" title="Last month">1M</button>
+                        <button class="mkt-range-btn"        data-range="3mo" title="Last 3 months">3M</button>
+                        <button class="mkt-range-btn"        data-range="6mo" title="Last 6 months">6M</button>
+                        <button class="mkt-range-btn"        data-range="1y"  title="Last year">1Y</button>
+                        <button class="mkt-range-btn"        data-range="max" title="Since first position opened">START</button>
+                    </div>
+                    <span id="mkt-chart-pnl" class="mkt-chart-pnl"></span>
+                </div>
+                <!-- ── Chart chassis: left panel · chart · right panel ── -->
+            <div class="mkt-chart-chassis">
+
+                <!-- Left flanking data panel -->
+                <div class="mkt-chassis-left" aria-hidden="true">
+                    <div class="mkt-hex-stream" id="mkt-hex-stream-l"></div>
+                    <div class="mkt-chassis-vline"></div>
+                    <div class="mkt-chassis-id">SYS.FEED</div>
+                </div>
+
+                <!-- Chart bounding box — width constrained here -->
+                <div class="mkt-chart-bound">
+                    <div id="mkt-chart-inner" class="mkt-chart-inner"></div>
+                </div>
+
+                <!-- Right flanking status panel -->
+                <div class="mkt-chassis-right" aria-hidden="true">
+                    <div class="mkt-chassis-vline"></div>
+                    <div class="mkt-status-stack">
+                        <div class="mkt-status-block" id="mkt-sb-sec">SEC</div>
+                        <div class="mkt-status-block" id="mkt-sb-net">NET</div>
+                        <div class="mkt-status-block" id="mkt-sb-syn">SYN</div>
+                        <div class="mkt-status-block" id="mkt-sb-enc">ENC</div>
+                    </div>
+                    <div class="mkt-chassis-id">7D.FEED</div>
+                </div>
+
+            </div>
+            </div>
+
+            <!-- Individual position cards -->
+            <div class="mkt-section-label" style="margin-top:1.1rem">// POSITIONS</div>
+            <div id="mkt-positions-grid" class="mkt-positions-grid"></div>
+        </div>
+    </div>
+
+    <!-- ── AI Analysis pane ───────────────────────────────────────────────── -->
+    <div id="markets-analysis-pane" class="mkt-pane" style="display:none">
+      <div class="mkt-analysis-toolbar">
+        <div class="mkt-search-wrap" id="mkt-analysis-search-wrap">
+          <input id="mkt-analysis-symbol" type="text" class="mkt-search-input"
+                 placeholder="Enter symbol (e.g. AAPL, TSLA, NVDA)…"
+                 autocomplete="off" spellcheck="false">
+          <ul id="mkt-analysis-dropdown" class="mkt-search-drop" style="display:none"></ul>
+        </div>
+        <select id="mkt-analysis-range" class="mkt-range-select">
+          <option value="1mo">1 Month</option>
+          <option value="3mo" selected>3 Months</option>
+          <option value="6mo">6 Months</option>
+          <option value="1y">1 Year</option>
+        </select>
+        <button id="mkt-analysis-btn" class="mkt-btn mkt-btn-primary">🤖 Analyse</button>
+      </div>
+      <div id="mkt-indicators-row" class="mkt-indicators-row" style="display:none">
+        <div class="mkt-indicator-chip" id="mkt-ind-rsi"></div>
+        <div class="mkt-indicator-chip" id="mkt-ind-macd"></div>
+        <div class="mkt-indicator-chip" id="mkt-ind-sma20"></div>
+        <div class="mkt-indicator-chip" id="mkt-ind-sma50"></div>
+        <div class="mkt-indicator-chip" id="mkt-ind-sma200"></div>
+        <div class="mkt-indicator-chip" id="mkt-ind-bb"></div>
+      </div>
+      <div id="mkt-analysis-chart-wrap" class="mkt-analysis-chart-wrap" style="display:none">
+        <canvas id="mkt-analysis-canvas" class="mkt-analysis-canvas" height="180"></canvas>
+      </div>
+      <div id="mkt-ai-output" class="mkt-ai-output" style="display:none">
+        <div class="mkt-ai-header">
+          <span class="mkt-ai-label">🤖 AI Analysis</span>
+          <span id="mkt-ai-symbol-badge" class="mkt-ai-symbol-badge"></span>
+          <span id="mkt-ai-time" class="mkt-ai-time"></span>
+        </div>
+        <div id="mkt-ai-text" class="mkt-ai-text"></div>
+      </div>
+      <div id="mkt-analysis-loading" class="mkt-analysis-loading" style="display:none">
+        <div class="mkt-loading-ring"></div>
+        <span id="mkt-analysis-loading-msg">Fetching indicators…</span>
+      </div>
+      <div class="mkt-analysis-empty" id="mkt-analysis-empty">
+        Enter a stock symbol above and click Analyse for AI-powered technical analysis.
+      </div>
+    </div>
+
+    <!-- ── Screener pane ──────────────────────────────────────────────────── -->
+    <div id="markets-screener-pane" class="mkt-pane" style="display:none">
+      <div class="mkt-screener-toolbar">
+        <div class="mkt-filter-pills">
+          <button class="mkt-filter-pill active" data-filter="all">All</button>
+          <button class="mkt-filter-pill" data-filter="oversold">🟢 Oversold</button>
+          <button class="mkt-filter-pill" data-filter="overbought">🔴 Overbought</button>
+          <button class="mkt-filter-pill" data-filter="momentum">⚡ Momentum</button>
+        </div>
+        <button id="mkt-screener-refresh" class="mkt-btn mkt-btn-icon" title="Refresh screener">↻</button>
+      </div>
+      <div id="mkt-screener-status" class="mkt-screener-status"></div>
+      <div id="mkt-screener-grid" class="mkt-screener-grid">
+        <div class="mkt-screener-loading">Loading screener… (fetches 30 stocks)</div>
+      </div>
+    </div>
+
+    <!-- ── Account pane ───────────────────────────────────────────────────── -->
+    <div id="markets-account-pane" class="mkt-pane" style="display:none">
+      <div id="mkt-account-unconfigured" class="mkt-account-unconfigured" style="display:none">
+        <div class="mkt-account-setup-icon">📊</div>
+        <div class="mkt-account-setup-title">Connect Alpaca</div>
+        <p class="mkt-account-setup-desc">Add your Alpaca API key and secret in Agent → Settings to connect your paper or live trading account.</p>
+        <button class="mkt-btn mkt-btn-primary" onclick="window.Shell?.switch('agent')">Open Agent Settings</button>
+      </div>
+      <div id="mkt-account-content" style="display:none">
+        <div class="mkt-account-cards" id="mkt-account-cards"></div>
+        <div class="mkt-section-label" style="margin-top:1.25rem">// POSITIONS</div>
+        <div id="mkt-account-positions" class="mkt-account-positions"></div>
+        <div class="mkt-section-label" style="margin-top:1.25rem">// PLACE ORDER</div>
+        <div class="mkt-order-form" id="mkt-order-form">
+          <select id="mkt-order-side" class="mkt-order-select">
+            <option value="buy">BUY</option>
+            <option value="sell">SELL</option>
+          </select>
+          <input id="mkt-order-symbol" type="text" class="mkt-order-input" placeholder="Symbol" style="width:90px">
+          <input id="mkt-order-qty" type="number" class="mkt-order-input" placeholder="Qty" min="1" style="width:70px">
+          <select id="mkt-order-type" class="mkt-order-select">
+            <option value="market">Market</option>
+            <option value="limit">Limit</option>
+          </select>
+          <input id="mkt-order-limit-price" type="number" class="mkt-order-input" placeholder="Limit $" style="width:90px;display:none" step="0.01">
+          <button id="mkt-order-submit" class="mkt-btn mkt-btn-primary">Submit Order</button>
+          <span id="mkt-order-mode" class="mkt-order-mode"></span>
+        </div>
+        <div id="mkt-order-status" class="mkt-order-status"></div>
+      </div>
+    </div>
+
+    <!-- ── Deep Research pane ─────────────────────────────────────────────── -->
+    <div id="markets-research-pane" class="mkt-pane" style="display:none">
+
+      <!-- Input panel -->
+      <div class="mkt-research-header">
+        <div class="mkt-research-inputs">
+          <div class="mkt-research-field">
+            <label class="mkt-research-label">Ticker Symbol</label>
+            <input id="mkt-research-symbol" type="text" class="mkt-order-input"
+                   placeholder="NVDA" style="width:90px;text-transform:uppercase">
+          </div>
+          <div class="mkt-research-field">
+            <label class="mkt-research-label">Company Name (for contract search)</label>
+            <input id="mkt-research-company" type="text" class="mkt-order-input"
+                   placeholder="NVIDIA Corporation" style="width:260px">
+          </div>
+          <div class="mkt-research-field">
+            <label class="mkt-research-label">AI Model</label>
+            <select id="mkt-research-model" class="mkt-range-select">
+              <option value="claude-3-5-haiku-20241022">Claude 3.5 Haiku (fast, cheap)</option>
+              <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet (best quality)</option>
+              <option value="ollama">Ollama (local, free)</option>
+            </select>
+          </div>
+        </div>
+        <div class="mkt-research-options">
+          <label class="mkt-research-checkbox">
+            <input type="checkbox" id="mkt-research-contracts" checked> Include gov contracts
+          </label>
+          <label class="mkt-research-checkbox">
+            <input type="checkbox" id="mkt-research-macro" checked> Include macro data
+          </label>
+        </div>
+        <button id="mkt-research-btn" class="mkt-btn mkt-btn-primary" style="align-self:flex-end">
+          🔬 Deep Research
+        </button>
+      </div>
+
+      <!-- Macro bar (always visible after first load) -->
+      <div id="mkt-macro-bar" class="mkt-macro-bar" style="display:none">
+        <span class="mkt-macro-label">MACRO</span>
+        <span id="mkt-macro-fed" class="mkt-macro-item"></span>
+        <span id="mkt-macro-10y" class="mkt-macro-item"></span>
+        <span id="mkt-macro-curve" class="mkt-macro-item"></span>
+        <span id="mkt-macro-cpi" class="mkt-macro-item"></span>
+        <span id="mkt-macro-unemp" class="mkt-macro-item"></span>
+      </div>
+
+      <!-- Loading state -->
+      <div id="mkt-research-loading" class="mkt-analysis-loading" style="display:none">
+        <div class="mkt-loading-ring"></div>
+        <span id="mkt-research-loading-msg">Gathering data…</span>
+      </div>
+
+      <!-- Contracts preview (shown while AI is thinking) -->
+      <div id="mkt-contracts-preview" style="display:none">
+        <div class="mkt-section-label">// GOVERNMENT CONTRACTS (USASpending.gov)</div>
+        <div id="mkt-contracts-list" class="mkt-contracts-list"></div>
+      </div>
+
+      <!-- AI output -->
+      <div id="mkt-research-output" class="mkt-research-output" style="display:none">
+        <div class="mkt-research-output-header">
+          <span id="mkt-research-symbol-badge" class="mkt-ai-symbol-badge"></span>
+          <span id="mkt-research-model-badge" class="mkt-research-model-badge"></span>
+          <span id="mkt-research-time" class="mkt-ai-time"></span>
+        </div>
+        <div id="mkt-research-text" class="mkt-ai-text mkt-research-text"></div>
+      </div>
+
+      <!-- Empty state -->
+      <div id="mkt-research-empty" class="mkt-analysis-empty">
+        Enter a ticker and company name, then click Deep Research.<br>
+        <span style="font-size:0.8rem">Uses Claude AI + live government contract data + FRED macro indicators.</span>
+      </div>
+    </div>
+
+    <!-- ── Track-position modal ──────────────────────────────────────────── -->
+    <div id="mkt-modal-overlay" class="mkt-modal-overlay" style="display:none">
+        <div class="mkt-modal" role="dialog" aria-modal="true" aria-label="Track a position">
+            <div class="mkt-modal-head">
+                <span class="mkt-modal-title">Track a position</span>
+                <button class="mkt-modal-close" id="mkt-modal-close" title="Close">✕</button>
+            </div>
+            <form id="mkt-track-form" class="mkt-track-form" autocomplete="off">
+
+                <label class="mkt-field">
+                    <span class="mkt-field-label">Symbol</span>
+                    <!-- Search-dropdown wrapper for the modal symbol field -->
+                    <div class="mkt-search-wrap mkt-modal-search" id="mkt-modal-search-wrap">
+                        <span class="mkt-search-icon">⌕</span>
+                        <input id="mkt-field-symbol" class="mkt-field-input" type="text"
+                               placeholder="Search: AAPL, BTC, VWCE.DE…"
+                               spellcheck="false" maxlength="50"
+                               autocomplete="off" role="combobox"
+                               aria-expanded="false" aria-haspopup="listbox"
+                               aria-controls="mkt-modal-search-dropdown">
+                        <ul id="mkt-modal-search-dropdown" class="mkt-search-drop"
+                            role="listbox"></ul>
+                    </div>
+                    <span class="mkt-field-hint">Stocks, ETFs, and cryptos all work</span>
+                </label>
+
+                <div class="mkt-field-row">
+                    <label class="mkt-field mkt-field--grow">
+                        <span class="mkt-field-label">Amount invested</span>
+                        <input id="mkt-field-amount" class="mkt-field-input" type="number"
+                               min="0.01" step="0.01" placeholder="500">
+                    </label>
+                    <label class="mkt-field mkt-field--fixed">
+                        <span class="mkt-field-label">Currency</span>
+                        <select id="mkt-field-currency" class="mkt-field-input mkt-field-select">
+                            <option value="EUR">EUR €</option>
+                            <option value="USD">USD $</option>
+                            <option value="GBP">GBP £</option>
+                        </select>
+                    </label>
+                </div>
+
+                <!-- Price preview / error shown here -->
+                <div id="mkt-field-preview" class="mkt-field-preview"></div>
+
+                <div class="mkt-modal-actions">
+                    <button type="button" id="mkt-modal-cancel" class="mkt-btn">Cancel</button>
+                    <button type="submit"  id="mkt-modal-submit" class="mkt-btn mkt-btn-primary">
+                        Start tracking
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ── Edit-position modal ───────────────────────────────────────────── -->
+    <div id="mkt-edit-overlay" class="mkt-modal-overlay" style="display:none">
+        <div class="mkt-modal" role="dialog" aria-modal="true" aria-label="Edit position">
+            <div class="mkt-modal-head">
+                <span class="mkt-modal-title" id="mkt-edit-title">Edit position</span>
+                <button class="mkt-modal-close" id="mkt-edit-close" title="Close">✕</button>
+            </div>
+            <form id="mkt-edit-form" class="mkt-track-form" autocomplete="off">
+                <input type="hidden" id="mkt-edit-id">
+
+                <!-- Symbol (read-only display) -->
+                <div class="mkt-field">
+                    <span class="mkt-field-label">Symbol</span>
+                    <div class="mkt-edit-sym-row">
+                        <span class="mkt-edit-sym" id="mkt-edit-sym">—</span>
+                        <span class="mkt-edit-type-badge" id="mkt-edit-type"></span>
+                    </div>
+                </div>
+
+                <!-- Live snapshot -->
+                <div class="mkt-edit-snapshot" id="mkt-edit-snapshot"></div>
+
+                <!-- Amount + currency -->
+                <div class="mkt-field-row">
+                    <label class="mkt-field mkt-field--grow">
+                        <span class="mkt-field-label">Invested amount</span>
+                        <input id="mkt-edit-amount" class="mkt-field-input" type="number"
+                               min="0.01" step="0.01" placeholder="0.00">
+                        <span class="mkt-field-hint" id="mkt-edit-amount-hint"></span>
+                    </label>
+                    <label class="mkt-field mkt-field--fixed">
+                        <span class="mkt-field-label">Currency</span>
+                        <select id="mkt-edit-currency" class="mkt-field-input mkt-field-select">
+                            <option value="EUR">EUR €</option>
+                            <option value="USD">USD $</option>
+                            <option value="GBP">GBP £</option>
+                        </select>
+                    </label>
+                </div>
+
+                <!-- Cost-basis reset -->
+                <label class="mkt-edit-reset-row">
+                    <input type="checkbox" id="mkt-edit-reset-basis" class="mkt-edit-checkbox">
+                    <div class="mkt-edit-reset-text">
+                        <span class="mkt-edit-reset-label">Reset cost basis to current price</span>
+                        <span class="mkt-edit-reset-hint">Restarts P&amp;L tracking from now — useful after averaging in or a partial exit</span>
+                    </div>
+                </label>
+
+                <div id="mkt-edit-preview" class="mkt-field-preview"></div>
+
+                <div class="mkt-modal-actions">
+                    <button type="button" id="mkt-edit-cancel" class="mkt-btn">Cancel</button>
+                    <button type="submit"  id="mkt-edit-submit" class="mkt-btn mkt-btn-primary">
+                        Save changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+</div>

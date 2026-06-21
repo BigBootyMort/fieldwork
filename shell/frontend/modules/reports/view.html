@@ -1,0 +1,65 @@
+<!-- Reports module — split-screen: list left, content right -->
+<link rel="stylesheet" href="/modules/reports/style.css">
+
+<div id="reports-root">
+
+    <!-- Toolbar -->
+    <div id="reports-toolbar">
+        <div class="reports-toolbar-group">
+            <span id="reports-title-logo">📋 Intelligence Reports</span>
+        </div>
+        <div class="reports-toolbar-group" style="flex:1"></div>
+        <div class="reports-toolbar-group">
+            <label class="reports-window-label">
+                Window:
+                <select id="reports-window" title="News look-back window">
+                    <option value="6">Last 6 h</option>
+                    <option value="12">Last 12 h</option>
+                    <option value="24" selected>Last 24 h</option>
+                    <option value="48">Last 48 h</option>
+                </select>
+            </label>
+            <button id="reports-generate-btn" class="reports-btn reports-btn-primary"
+                    title="Generate a new intelligence brief">⚡ Generate</button>
+            <button id="reports-print-btn" class="reports-btn"
+                    title="Print / export as PDF">🖨 Print</button>
+        </div>
+    </div>
+
+    <!-- Workspace: sidebar + main content -->
+    <div id="reports-workspace">
+
+        <!-- Left sidebar: saved reports list -->
+        <div id="reports-sidebar">
+            <div id="reports-sidebar-head">
+                <span>Saved Reports</span>
+                <span id="reports-sidebar-count" class="reports-dim"></span>
+            </div>
+            <div id="reports-list">
+                <div class="reports-dim" style="padding:0.6rem 0.75rem;font-size:0.8rem">
+                    No saved reports yet.
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: report content -->
+        <div id="reports-content-wrap">
+            <!-- Stats ribbon -->
+            <div id="reports-stats-bar" class="hidden">
+                <span id="rst-date" class="reports-stat-pill"></span>
+                <span id="rst-articles" class="reports-stat-pill"></span>
+                <span id="rst-cases" class="reports-stat-pill"></span>
+                <span id="rst-window" class="reports-stat-pill"></span>
+            </div>
+
+            <!-- Printable report body -->
+            <div id="reports-body">
+                <div class="reports-placeholder">
+                    <div class="reports-placeholder-icon">📋</div>
+                    <div>Click <strong>⚡ Generate</strong> to produce an intelligence brief,<br>
+                    or select a saved report from the left panel.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

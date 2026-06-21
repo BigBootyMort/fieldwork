@@ -1,0 +1,121 @@
+<!-- News module — split-screen view injected into #module-root -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+<link rel="stylesheet" href="/modules/news/style.css">
+
+<div id="news-root">
+    <!-- Top toolbar -->
+    <div id="news-toolbar">
+        <div class="news-toolbar-group">
+            <label class="news-window-label">
+                Window:
+                <select id="news-window" title="Time window for heat scoring & article list">
+                    <option value="6">Last 6 h</option>
+                    <option value="12" selected>Last 12 h</option>
+                    <option value="24">Last 24 h</option>
+                    <option value="48">Last 48 h</option>
+                </select>
+            </label>
+            <span id="news-window-stats" class="news-pill">—</span>
+        </div>
+        <div class="news-toolbar-group" style="flex:1"></div>
+        <div class="news-toolbar-group">
+            <button id="news-watch-btn" class="news-btn" title="Manage your watchlist (entities, topics, countries)">🎯 Watchlist</button>
+            <button id="news-stories-btn" class="news-btn" title="Group near-duplicate articles into stories">🗂 Stories</button>
+            <button id="news-poll-btn"  class="news-btn" title="Pull latest articles from all RSS feeds">🔄 Poll feeds</button>
+            <button id="news-brief-btn" class="news-btn news-btn-primary"
+                    title="Generate the morning brief from the latest articles">🧠 Brief</button>
+            <button id="news-tts-toggle" class="news-btn" title="Read brief & replies aloud">🔈 TTS</button>
+        </div>
+    </div>
+
+    <!-- Watchlist overlay -->
+    <div id="news-watch-overlay" class="news-overlay" hidden>
+        <div class="news-overlay-card">
+            <div class="news-overlay-head">
+                <span>🎯 Watchlist</span>
+                <button id="news-watch-close" class="news-icon-btn" title="Close">✕</button>
+            </div>
+            <p class="news-dim" style="font-size:0.78rem;margin:0 0 0.6rem">
+                Track entities, topics, or countries. Your brief leads with matches since the last brief.
+            </p>
+            <form id="news-watch-form" class="news-watch-form" autocomplete="off">
+                <select id="news-watch-kind">
+                    <option value="entity">Entity</option>
+                    <option value="topic">Topic</option>
+                    <option value="country">Country (ISO2)</option>
+                </select>
+                <input id="news-watch-value" type="text" placeholder="e.g. Palantir · cyber · UA" maxlength="120">
+                <button type="submit" class="news-btn news-btn-primary">＋ Add</button>
+            </form>
+            <div id="news-watch-list" class="news-watch-list"></div>
+        </div>
+    </div>
+
+    <!-- Investigate modal -->
+    <div id="news-invest-overlay" class="news-overlay" hidden>
+        <div class="news-overlay-card news-overlay-card--wide">
+            <div class="news-overlay-head">
+                <span id="news-invest-title">🔬 Investigate</span>
+                <button id="news-invest-close" class="news-icon-btn" title="Close">✕</button>
+            </div>
+            <div id="news-invest-body" class="news-invest-body"></div>
+        </div>
+    </div>
+
+    <!-- Split workspace -->
+    <div id="news-workspace">
+        <!-- Left: choropleth map -->
+        <div id="news-map-wrap">
+            <div id="news-map"></div>
+            <div id="news-map-legend">
+                <div class="legend-row"><span class="sw" style="background:#f87171"></span><span>War / disaster</span></div>
+                <div class="legend-row"><span class="sw" style="background:#e879f9"></span><span>Crisis / security</span></div>
+                <div class="legend-row"><span class="sw" style="background:#38bdf8"></span><span>World</span></div>
+                <div class="legend-row"><span class="sw" style="background:#34d399"></span><span>Business</span></div>
+                <div class="legend-row"><span class="sw" style="background:#818cf8"></span><span>Tech</span></div>
+                <div class="legend-row" style="margin-top:4px;border-top:1px solid var(--border);padding-top:4px">
+                    <span style="font-style:italic;color:var(--text-dim)">Opacity = volume</span>
+                </div>
+            </div>
+            <div id="news-selected-country" class="hidden">
+                <span id="nsc-name">—</span>
+                <button id="nsc-clear" title="Clear country filter">✕</button>
+            </div>
+        </div>
+
+        <!-- Right: brief + article list -->
+        <div id="news-side">
+            <div id="news-brief-card" class="news-card">
+                <div class="news-card-head">
+                    <span>🧠 Morning Brief <span id="news-brief-engine"></span></span>
+                    <div class="news-brief-controls">
+                        <button id="news-brief-play"  class="news-icon-btn" title="Read brief aloud">▶</button>
+                        <button id="news-brief-pause" class="news-icon-btn" title="Pause" disabled>⏸</button>
+                        <button id="news-brief-stop"  class="news-icon-btn" title="Stop"  disabled>⏹</button>
+                    </div>
+                </div>
+                <div id="news-brief-body" class="news-brief-body">
+                    Click <strong>🧠 Brief</strong> to generate one for the selected window.
+                </div>
+            </div>
+
+            <div id="news-articles-card" class="news-card">
+                <div class="news-card-head">
+                    <span>📰 Articles <span id="news-articles-count" class="news-dim">(0)</span></span>
+                </div>
+                <div id="news-articles-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI assistant strip (sticky bottom) -->
+    <div id="news-assistant">
+        <div id="news-assistant-log"></div>
+        <form id="news-assistant-form" autocomplete="off">
+            <input id="news-assistant-input" type="text"
+                   placeholder="Ask Runi about today's news…  (e.g. 'summarise the Ukraine items')"
+                   autocomplete="off">
+            <button type="submit" class="news-btn news-btn-primary" id="news-assistant-send">Ask</button>
+        </form>
+    </div>
+</div>

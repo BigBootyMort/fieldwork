@@ -19,8 +19,15 @@ log = logging.getLogger("spiderfoot")
 
 SPIDERFOOT_URL = os.getenv("SPIDERFOOT_URL", "http://spiderfoot:5001")
 
-# Map SpiderFoot use-case names to API param values
+# Map SpiderFoot use-case names to API param values.
+# SpiderFoot v4 is case-sensitive: 'Passive', 'Investigate', 'Footprint', 'all'
 USECASES = {"passive", "investigate", "footprint", "all"}
+_USECASE_MAP = {
+    "passive":     "Passive",
+    "investigate": "Investigate",
+    "footprint":   "Footprint",
+    "all":         "all",
+}
 
 
 # === Event-type → graph mapping ===
@@ -84,51 +91,85 @@ class SpiderFootClient:
             base_url=self.base_url,
             timeout=self.timeout,
             follow_redirects=True,
-            headers={"User-Agent": "fieldwork-engine/0.2"},
+            headers={
+                "User-Agent": "fieldwork-engine/0.2",
+                "Accept": "application/json",
+            },
         )
 
     async def ping(self) -> bool:
         async with await self._client() as c:
             r = await c.get("/ping")
-            return r.status_code == 200 and "SUCCESS" in r.text
+            # /ping returns ["SUCCESS", "4.0.0"] as JSON (or plain text on older versions)
+            if r.status_code != 200:
+                return False
+            try:
+                data = r.json()
+                return isinstance(data, list) and data[0] == "SUCCESS"
+            except Exception:
+                return "SUCCESS" in r.text
 
     async def start_scan(self, name: str, target: str, target_type: str, usecase: str = "passive") -> str:
-        """Returns the scan ID."""
+        """Returns the scan ID.
+
+        SpiderFoot v4 notes:
+        - usecase must be correctly capitalised: 'Passive', 'Investigate', 'Footprint', 'all'
+        - modulelist and typelist MUST be present (even as empty strings) or CherryPy
+          won't match the function signature and returns Not Found.
+        - Sending Accept: application/json makes SpiderFoot return ["SUCCESS", "<scanId>"]
+          directly instead of issuing an HTTP redirect, which is far more reliable.
+        """
         if usecase not in USECASES:
             raise ValueError(f"Invalid usecase: {usecase}")
-        # SpiderFoot's /startscan accepts form-encoded params.
-        # 'typelist' / 'modulelist' empty means use the usecase's defaults.
+        sf_usecase = _USECASE_MAP[usecase]
+
         async with await self._client() as c:
             r = await c.post(
                 "/startscan",
                 data={
                     "scanname": name,
                     "scantarget": target,
-                    "usecase": usecase,
+                    "usecase": sf_usecase,
                     "modulelist": "",
                     "typelist": "",
                 },
             )
-            # SpiderFoot's /startscan redirects to /scaninfo?id=<scanid> on success.
-            # If we got a 200 back through redirects, find the scan ID in the URL or response.
-            # Easier: list scans and find the newest matching name.
-            if r.status_code >= 400:
-                raise RuntimeError(f"SpiderFoot /startscan returned {r.status_code}: {r.text[:300]}")
 
-            # Try to extract from URL (it redirects to /scaninfo?id=...)
-            if "id=" in str(r.url):
-                from urllib.parse import urlparse, parse_qs
-                qs = parse_qs(urlparse(str(r.url)).query)
-                if "id" in qs:
-                    return qs["id"][0]
+        if r.status_code >= 400:
+            raise RuntimeError(f"SpiderFoot /startscan returned {r.status_code}: {r.text[:300]}")
 
-            # Fallback: pull list and find by name
+        # With Accept: application/json, SpiderFoot v4 returns ["SUCCESS", "<scanId>"]
+        try:
+            data = r.json()
+            if isinstance(data, list) and len(data) >= 2 and data[0] == "SUCCESS":
+                return data[1]
+            if isinstance(data, list) and data[0] == "ERROR":
+                raise RuntimeError(f"SpiderFoot scan error: {data[1]}")
+        except Exception as exc:
+            # If JSON parsing fails, fall through to URL extraction
+            if "scan error" in str(exc):
+                raise
+
+        # Fallback: extract scan ID from redirect URL (/scaninfo?id=<scanId>)
+        if "id=" in str(r.url):
+            from urllib.parse import urlparse, parse_qs
+            qs = parse_qs(urlparse(str(r.url)).query)
+            if "id" in qs:
+                return qs["id"][0]
+
+        # Last resort: list scans and find by name
+        async with await self._client() as c:
             r2 = await c.get("/scanlist")
+        try:
             scans = r2.json()
-            for s in reversed(scans):  # newest last
-                if isinstance(s, list) and len(s) >= 2 and s[1] == name:
-                    return s[0]
-            raise RuntimeError("Could not determine scan ID after /startscan")
+        except Exception:
+            raise RuntimeError("Could not parse /scanlist response after /startscan")
+        for s in reversed(scans):
+            if isinstance(s, dict) and s.get("name") == name:
+                return s["id"]
+            if isinstance(s, list) and len(s) >= 2 and s[1] == name:
+                return s[0]
+        raise RuntimeError("Could not determine scan ID after /startscan")
 
     async def scan_status(self, scan_id: str) -> dict:
         async with await self._client() as c:

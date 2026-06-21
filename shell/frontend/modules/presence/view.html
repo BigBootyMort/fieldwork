@@ -1,0 +1,144 @@
+<div id="presence-root" class="presence-root">
+  <div class="presence-toolbar">
+    <span class="presence-logo">📣</span>
+    <span class="presence-title">Presence Builder</span>
+    <div class="presence-tabs">
+      <button class="presence-tab active" data-tab="content">✍️ Content</button>
+      <button class="presence-tab" data-tab="listings">📋 Listings</button>
+      <button class="presence-tab" data-tab="outreach">📧 Outreach</button>
+    </div>
+  </div>
+
+  <!-- Content Generator tab -->
+  <div id="presence-tab-content" class="presence-tab-pane active">
+    <div class="presence-two-col">
+      <!-- Generator panel -->
+      <div class="presence-panel">
+        <div class="presence-panel-title">Generate Post</div>
+        <div class="presence-form-row">
+          <label class="presence-label">Type</label>
+          <select id="content-type" class="presence-select">
+            <option value="tip">💡 OSINT Tip (Twitter)</option>
+            <option value="casestudy">📖 Case Study (LinkedIn)</option>
+            <option value="thread">🧵 Thread Hook (Twitter)</option>
+            <option value="service">📣 Service Post</option>
+          </select>
+        </div>
+        <div class="presence-form-row">
+          <label class="presence-label">Topic</label>
+          <select id="content-topic" class="presence-select">
+            <option>username tracking</option>
+            <option>domain intelligence</option>
+            <option>corporate research</option>
+            <option>sanctions screening</option>
+            <option>social media OSINT</option>
+            <option>dark web monitoring</option>
+            <option>email verification</option>
+            <option>phone intelligence</option>
+          </select>
+        </div>
+        <div class="presence-form-row">
+          <label class="presence-label">Platform (for service posts)</label>
+          <select id="content-platform" class="presence-select">
+            <option>LinkedIn</option>
+            <option>Twitter/X</option>
+          </select>
+        </div>
+        <button id="content-generate-btn" class="presence-btn presence-btn--primary">✨ Generate</button>
+        <div id="content-output-wrap" hidden>
+          <textarea id="content-output" class="presence-textarea" rows="8"></textarea>
+          <div id="content-charcount" class="presence-charcount"></div>
+          <div class="presence-actions">
+            <button id="content-copy-btn" class="presence-btn presence-btn--ghost">📋 Copy</button>
+            <button id="content-save-btn" class="presence-btn presence-btn--success">💾 Save to Calendar</button>
+          </div>
+        </div>
+      </div>
+      <!-- Calendar panel -->
+      <div class="presence-panel">
+        <div class="presence-panel-title">Content Calendar</div>
+        <div id="presence-calendar" class="presence-calendar">
+          <div class="presence-empty">No saved content yet.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Listings tab -->
+  <div id="presence-tab-listings" class="presence-tab-pane" hidden>
+    <div class="presence-two-col">
+      <div class="presence-panel">
+        <div class="presence-panel-title">Generate Listing</div>
+        <div class="presence-form-row">
+          <label class="presence-label">Platform</label>
+          <select id="listing-platform" class="presence-select">
+            <option>Upwork</option>
+            <option>Fiverr</option>
+            <option>PeoplePerHour</option>
+          </select>
+        </div>
+        <div class="presence-form-row">
+          <label class="presence-label">Service</label>
+          <select id="listing-service" class="presence-select">
+            <option>Background Check</option>
+            <option>Due Diligence</option>
+            <option>OSINT Report</option>
+            <option>Person Profile</option>
+            <option>Corporate Research</option>
+          </select>
+        </div>
+        <button id="listing-generate-btn" class="presence-btn presence-btn--primary">✨ Generate Listing</button>
+        <div id="listing-output-wrap" hidden>
+          <div id="listing-output" class="presence-listing-output"></div>
+        </div>
+      </div>
+      <div class="presence-panel">
+        <div class="presence-panel-title">Platform Status</div>
+        <div id="presence-platforms" class="presence-platforms"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Outreach tab -->
+  <div id="presence-tab-outreach" class="presence-tab-pane" hidden>
+    <div class="presence-two-col">
+      <div class="presence-panel">
+        <div class="presence-panel-title">Generate Outreach</div>
+        <div class="presence-form-row">
+          <label class="presence-label">Target</label>
+          <select id="outreach-target" class="presence-select">
+            <option>Law firm</option>
+            <option>HR/Recruitment agency</option>
+            <option>Private investigator</option>
+            <option>Compliance team</option>
+            <option>Journalist</option>
+            <option>VC/PE fund</option>
+          </select>
+        </div>
+        <div class="presence-form-row">
+          <label class="presence-label">Service</label>
+          <select id="outreach-service" class="presence-select">
+            <option>Background Check</option>
+            <option>Due Diligence</option>
+            <option>OSINT Report</option>
+            <option>Corporate Research</option>
+          </select>
+        </div>
+        <button id="outreach-generate-btn" class="presence-btn presence-btn--primary">✨ Generate Outreach</button>
+      </div>
+      <div class="presence-panel">
+        <div id="outreach-output-wrap" hidden>
+          <div class="presence-panel-title">Cold Email</div>
+          <div id="outreach-email-subject" class="presence-outreach-subject"></div>
+          <textarea id="outreach-email-body" class="presence-textarea" rows="8"></textarea>
+          <button id="outreach-email-copy" class="presence-btn presence-btn--ghost">📋 Copy email</button>
+          <div class="presence-panel-title" style="margin-top:1.5rem">LinkedIn Message</div>
+          <textarea id="outreach-linkedin" class="presence-textarea" rows="4"></textarea>
+          <div id="outreach-linkedin-count" class="presence-charcount"></div>
+          <button id="outreach-linkedin-copy" class="presence-btn presence-btn--ghost">📋 Copy message</button>
+        </div>
+        <div id="outreach-loading" class="presence-loading" hidden>✍️ Writing outreach (15-30s)…</div>
+      </div>
+    </div>
+  </div>
+</div>

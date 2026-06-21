@@ -1,0 +1,56 @@
+<div id="gigs-root" class="gigs-root">
+  <!-- Toolbar -->
+  <div class="gigs-toolbar">
+    <span class="gigs-logo">💼</span>
+    <span class="gigs-title">Gig Hunter</span>
+    <span id="gigs-new-badge" class="gigs-new-badge" hidden></span>
+    <div class="gigs-toolbar-spacer"></div>
+    <button id="gigs-refresh-btn" class="gigs-btn gigs-btn--primary">🔄 Refresh</button>
+    <button id="gigs-stats-btn" class="gigs-btn gigs-btn--ghost">📊 Stats</button>
+  </div>
+
+  <!-- Stats panel (hidden by default) -->
+  <div id="gigs-stats-panel" class="gigs-stats-panel" hidden>
+    <div id="gigs-stats-body"></div>
+  </div>
+
+  <!-- Main layout -->
+  <div class="gigs-layout">
+    <!-- Filter sidebar -->
+    <div class="gigs-filters">
+      <div class="gigs-filter-label">Filter</div>
+      <button class="gigs-filter-btn active" data-status="all">All</button>
+      <button class="gigs-filter-btn" data-status="new">🆕 New</button>
+      <button class="gigs-filter-btn" data-status="applied">📤 Applied</button>
+      <button class="gigs-filter-btn" data-status="won">✅ Won</button>
+      <button class="gigs-filter-btn" data-status="lost">❌ Lost</button>
+      <button class="gigs-filter-btn" data-status="skipped">🚫 Skipped</button>
+      <hr class="gigs-divider">
+      <div class="gigs-filter-label">Min Score</div>
+      <input id="gigs-min-score" type="range" min="0" max="80" value="0" class="gigs-slider" oninput="GigsView.setMinScore(this.value)">
+      <div id="gigs-min-score-label" class="gigs-filter-label">0+</div>
+    </div>
+
+    <!-- Gig list -->
+    <div class="gigs-list-wrap">
+      <div id="gigs-list" class="gigs-list">
+        <div class="gigs-empty">Loading gigs…</div>
+      </div>
+    </div>
+
+    <!-- Proposal drawer -->
+    <div id="gigs-proposal-drawer" class="gigs-proposal-drawer" hidden>
+      <div class="gigs-proposal-head">
+        <span class="gigs-proposal-title">📝 Proposal Draft</span>
+        <button id="gigs-proposal-close" class="gigs-btn gigs-btn--ghost gigs-btn--xs">✕</button>
+      </div>
+      <div id="gigs-proposal-gig-title" class="gigs-proposal-gig-title"></div>
+      <div id="gigs-proposal-loading" class="gigs-proposal-loading">✍️ Writing proposal…</div>
+      <textarea id="gigs-proposal-text" class="gigs-proposal-textarea" placeholder="Proposal will appear here…" rows="10"></textarea>
+      <div class="gigs-proposal-footer">
+        <button id="gigs-proposal-copy" class="gigs-btn gigs-btn--primary">📋 Copy to clipboard</button>
+        <button id="gigs-proposal-applied" class="gigs-btn gigs-btn--success">✅ Mark as Applied</button>
+      </div>
+    </div>
+  </div>
+</div>

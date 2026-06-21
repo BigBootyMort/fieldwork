@@ -1,0 +1,208 @@
+<!-- Agent module view -->
+<div id="agent-root" class="agent-root">
+
+  <!-- ── Toolbar ─────────────────────────────────────────────────────────── -->
+  <div class="agent-toolbar">
+    <span class="agent-logo">🤖</span>
+    <span class="agent-title">Autonomous Agent</span>
+    <span id="agent-status-badge" class="agent-badge agent-badge--idle">IDLE</span>
+
+    <!-- Capability chips -->
+    <div id="agent-caps" class="agent-caps">
+      <span id="agent-cap-github" class="agent-cap" title="GitHub">🐙</span>
+      <span id="agent-cap-alpaca" class="agent-cap" title="Alpaca Trading">📈</span>
+      <span id="agent-cap-ollama" class="agent-cap" title="Ollama LLM">🧠</span>
+    </div>
+
+    <div class="agent-toolbar-spacer"></div>
+    <button id="agent-settings-btn" class="agent-btn agent-btn--ghost" title="Configure integrations (GitHub, Alpaca…)">
+      ⚙ Settings
+    </button>
+    <button id="agent-stop-btn" class="agent-btn agent-btn--danger" disabled title="Abort running task">
+      ⏹ Stop
+    </button>
+  </div>
+
+  <!-- ── Settings drawer ─────────────────────────────────────────────────── -->
+  <div id="agent-settings-overlay" class="agent-settings-overlay" hidden>
+    <div class="agent-settings-drawer">
+      <div class="agent-settings-head">
+        <span class="agent-settings-title">⚙️ Agent Integrations</span>
+        <button id="agent-settings-close" class="agent-btn agent-btn--ghost agent-btn--xs">✕ Close</button>
+      </div>
+      <p class="agent-settings-intro">
+        Values are saved to <code>agent_config.json</code> and hot-reloaded instantly.
+        Leave a field blank to keep the current value.
+      </p>
+
+      <div id="agent-settings-body" class="agent-settings-body">
+        <div class="agent-settings-loading">Loading…</div>
+      </div>
+
+      <div class="agent-settings-footer">
+        <button id="agent-settings-save" class="agent-btn agent-btn--primary" disabled>
+          💾 Save changes
+        </button>
+        <span id="agent-settings-status" class="agent-settings-status"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Main workspace ──────────────────────────────────────────────────── -->
+  <div class="agent-workspace">
+
+    <!-- LEFT: domain selector + input + log terminal -->
+    <div class="agent-left">
+
+      <!-- Domain selector -->
+      <div class="agent-domains">
+        <button class="agent-domain-card" data-domain="dev">
+          <span class="agent-domain-icon">💻</span>
+          <div class="agent-domain-info">
+            <span class="agent-domain-name">Software Dev</span>
+            <span class="agent-domain-sub">Code · Git · Bug Bounties</span>
+          </div>
+        </button>
+        <button class="agent-domain-card" data-domain="freelance">
+          <span class="agent-domain-icon">💼</span>
+          <div class="agent-domain-info">
+            <span class="agent-domain-name">Freelance</span>
+            <span class="agent-domain-sub">Research · Draft · Deliver</span>
+          </div>
+        </button>
+        <button class="agent-domain-card" data-domain="trading">
+          <span class="agent-domain-icon">📈</span>
+          <div class="agent-domain-info">
+            <span class="agent-domain-name">Financial Trading</span>
+            <span class="agent-domain-sub">Analysis · Signals · Orders</span>
+          </div>
+        </button>
+      </div>
+
+      <!-- Example prompts (shown when domain selected) -->
+      <div id="agent-examples" class="agent-examples" hidden>
+        <div class="agent-examples-label">Quick-start — click a prompt:</div>
+        <div id="agent-examples-list" class="agent-examples-list"></div>
+      </div>
+
+      <!-- Objective input -->
+      <div class="agent-input-panel">
+        <label class="agent-label" for="agent-objective">
+          Objective
+          <span id="agent-domain-badge" class="agent-domain-pill" hidden></span>
+        </label>
+        <textarea
+          id="agent-objective"
+          class="agent-textarea"
+          rows="3"
+          placeholder="Describe the task for the agent to perform… (Ctrl+Enter to run)"
+          spellcheck="false"></textarea>
+        <div class="agent-input-footer">
+          <button id="agent-run-btn" class="agent-btn agent-btn--primary">
+            ▶ Execute
+          </button>
+          <button id="agent-clear-btn" class="agent-btn agent-btn--ghost">
+            Clear log
+          </button>
+        </div>
+      </div>
+
+      <!-- Execution log / terminal -->
+      <div class="agent-terminal-wrap">
+        <div class="agent-terminal-header">
+          <span class="agent-terminal-dot agent-dot--red"></span>
+          <span class="agent-terminal-dot agent-dot--amber"></span>
+          <span class="agent-terminal-dot agent-dot--green"></span>
+          <span class="agent-terminal-title">Execution Log</span>
+          <span id="agent-log-count" class="agent-log-count"></span>
+        </div>
+        <div id="agent-log" class="agent-log" aria-live="polite">
+          <div class="agent-log-empty">No task running. Select a domain or describe an objective above.</div>
+        </div>
+      </div>
+
+    </div><!-- /agent-left -->
+
+    <!-- RIGHT: plan + intercept + history -->
+    <div class="agent-right">
+
+      <!-- Execution Plan -->
+      <div class="agent-panel">
+        <div class="agent-panel-head">
+          <span class="agent-panel-icon">📋</span>
+          <span class="agent-panel-title">Execution Plan</span>
+          <span id="agent-plan-summary" class="agent-plan-summary"></span>
+        </div>
+        <ol id="agent-steps" class="agent-steps">
+          <li class="agent-step-placeholder">Plan will appear once the LLM generates it…</li>
+        </ol>
+      </div>
+
+      <!-- Human Intercept (hidden until triggered) -->
+      <div id="agent-intercept-panel" class="agent-intercept-panel" hidden>
+        <div class="agent-intercept-head">
+          <span class="agent-intercept-icon">⚠️</span>
+          <span class="agent-intercept-title">Human Authorisation Required</span>
+        </div>
+
+        <!-- Trade card (shown for FINANCIAL_TRANSACTION) -->
+        <div id="agent-trade-card" class="agent-trade-card" hidden>
+          <div class="agent-trade-head">
+            <span id="agent-trade-side" class="agent-trade-side"></span>
+            <span id="agent-trade-symbol" class="agent-trade-symbol"></span>
+            <span id="agent-trade-qty" class="agent-trade-qty"></span>
+          </div>
+          <div class="agent-trade-rows">
+            <div class="agent-trade-row">
+              <span class="agent-trade-lbl">Order type</span>
+              <span id="agent-trade-type" class="agent-trade-val"></span>
+            </div>
+            <div class="agent-trade-row">
+              <span class="agent-trade-lbl">Time in force</span>
+              <span id="agent-trade-tif" class="agent-trade-val"></span>
+            </div>
+            <div class="agent-trade-row">
+              <span class="agent-trade-lbl">Broker mode</span>
+              <span id="agent-trade-mode" class="agent-trade-val"></span>
+            </div>
+          </div>
+          <div id="agent-trade-mktctx" class="agent-trade-mktctx"></div>
+        </div>
+
+        <div id="agent-intercept-body" class="agent-intercept-body">
+          <div class="agent-intercept-row">
+            <span class="agent-intercept-lbl">Category</span>
+            <span id="agent-intercept-cat" class="agent-intercept-cat"></span>
+          </div>
+          <div class="agent-intercept-reason" id="agent-intercept-reason"></div>
+          <div class="agent-intercept-step-desc" id="agent-intercept-step-desc"></div>
+        </div>
+        <div class="agent-intercept-notes-row">
+          <input
+            id="agent-intercept-notes"
+            class="agent-intercept-notes"
+            type="text"
+            placeholder="Optional notes for the agent…"
+          />
+        </div>
+        <div class="agent-intercept-actions">
+          <button id="agent-intercept-reject"  class="agent-btn agent-btn--danger">✕ Reject</button>
+          <button id="agent-intercept-approve" class="agent-btn agent-btn--approve">✓ Approve</button>
+        </div>
+      </div>
+
+      <!-- Task History -->
+      <div class="agent-panel agent-panel--history">
+        <div class="agent-panel-head">
+          <span class="agent-panel-icon">🕒</span>
+          <span class="agent-panel-title">Task History</span>
+          <button id="agent-history-refresh" class="agent-btn agent-btn--ghost agent-btn--xs" title="Refresh">↻</button>
+        </div>
+        <ul id="agent-history-list" class="agent-history-list">
+          <li class="agent-history-empty">No tasks yet.</li>
+        </ul>
+      </div>
+
+    </div><!-- /agent-right -->
+  </div><!-- /agent-workspace -->
+</div><!-- /agent-root -->

@@ -1,0 +1,833 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   JARVIS SHELL — Neon Noir Design System
+   Palette: electric cyan (#18e0ff) × hot magenta (#ff2e97) on cool near-black
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+    /* ── Core surfaces (Neon Noir) ─────────────────────────────────────── */
+    --bg:              #06070f;
+    --surface:         #0a0b1a;
+    --surface-lighter: #11132b;
+    --border:          #1b2348;   /* cool indigo separators */
+
+    /* ── Brand neons — cyan primary × magenta accent ───────────────────── */
+    --primary:         #18e0ff;   /* electric cyan — active / selected */
+    --primary-hover:   #5cebff;
+    --primary-dim:     rgba( 24, 224, 255, 0.12);
+    --primary-glow:    rgba( 24, 224, 255, 0.35);
+
+    --accent:          #ff2e97;   /* hot magenta — hover / highlight */
+    --accent-dim:      rgba(255,  46, 151, 0.12);
+    --accent-glow:     rgba(255,  46, 151, 0.30);
+
+    /* ── Semantic — red reserved ONLY for genuine danger, softened ──────── */
+    --danger:          #ff3b5c;
+    --danger-glow:     rgba(255,  59,  92, 0.35);
+    --success:         #00ff9c;
+    --success-glow:    rgba(  0, 255, 156, 0.30);
+    --warning:         #fcee0a;
+    --warning-glow:    rgba(252, 238,  10, 0.30);
+
+    /* ── Text ───────────────────────────────────────────────────────────── */
+    --text:            #ccd6f0;
+    --text-dim:        #6e79a8;   /* cool mid — good contrast on --bg */
+    --text-bright:     #ffffff;
+
+    /* ── Elevation ──────────────────────────────────────────────────────── */
+    --shadow:          0 8px 32px rgba(0, 0, 0, 0.7);
+
+    /* ── Glow shortcuts ─────────────────────────────────────────────────── */
+    --glow-c:  0 0 8px rgba(24,224,255,0.4),  0 0 24px rgba(24,224,255,0.12);
+    --glow-m:  0 0 8px rgba(255,46,151,0.4),  0 0 20px rgba(255,46,151,0.10);
+    --glow-y:  0 0 8px rgba(252,238,10,0.4),  0 0 24px rgba(252,238,10,0.12);
+    --glow-r:  0 0 8px rgba(24,224,255,0.4),  0 0 20px rgba(24,224,255,0.10);
+}
+
+/* ── Reset ──────────────────────────────────────────────────────────────── */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; }
+
+/* ── Body: subtle cyan grid texture ────────────────────────────────────── */
+body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    overflow: hidden;
+    background-image:
+        linear-gradient(rgba(0,212,255,0.022) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,212,255,0.022) 1px, transparent 1px);
+    background-size: 60px 60px;
+}
+
+/* Scanline veil — very subtle texture across the whole viewport */
+body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+        0deg,
+        transparent 0px, transparent 2px,
+        rgba(0,0,0,0.018) 2px, rgba(0,0,0,0.018) 3px
+    );
+    pointer-events: none;
+    z-index: 99998;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   HEADER
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+#shell-header {
+    height: 52px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    /* thin neon bottom line */
+    box-shadow: 0 1px 0 rgba(0,212,255,0.18), 0 2px 20px rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    padding: 0 1rem;
+    gap: 0.85rem;
+    flex-shrink: 0;
+    z-index: 100;
+    position: relative;
+}
+
+/* ── Logo ─────────────────────────────────────────────────────────────── */
+#shell-logo {
+    font-size: 0.9rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--primary);
+    text-shadow: 0 0 10px rgba(24,224,255,0.5);
+    white-space: nowrap;
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+}
+
+#shell-logo .logo-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 1px;   /* diamond-ish via transform */
+    transform: rotate(45deg);
+    background: var(--primary);
+    box-shadow: var(--glow-y);
+    animation: cp-logo-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes cp-logo-pulse {
+    0%, 100% { opacity: 1;    box-shadow: var(--glow-y); }
+    50%       { opacity: 0.6; box-shadow: none; }
+}
+
+/* ── Nav tabs ─────────────────────────────────────────────────────────── */
+#shell-nav {
+    display: flex;
+    gap: 0;
+    flex: 1;
+    overflow-x: auto;
+    height: 100%;
+}
+
+.shell-nav-btn {
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-dim);
+    padding: 0 0.9rem;
+    height: 100%;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.82rem;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    transition: color 0.15s, border-color 0.15s, background 0.15s, text-shadow 0.15s;
+    border-radius: 0;
+}
+
+.shell-nav-btn:hover {
+    color: var(--accent);
+    background: var(--accent-dim);
+    border-bottom-color: rgba(0,212,255,0.4);
+}
+
+.shell-nav-btn.active {
+    color: var(--primary);
+    background: var(--primary-dim);
+    border-bottom-color: var(--primary);
+    text-shadow: 0 0 10px rgba(24,224,255,0.45);
+}
+
+/* ── Quick-action icon buttons ────────────────────────────────────────── */
+#shell-quick-actions {
+    display: flex;
+    gap: 0.35rem;
+    align-items: center;
+}
+
+.shell-icon-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    width: 32px;
+    height: 32px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9rem;
+    transition: color 0.15s, border-color 0.15s, box-shadow 0.15s;
+    /* angled corner cut */
+    clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px));
+}
+.shell-icon-btn:hover {
+    color: var(--accent);
+    border-color: rgba(0,212,255,0.5);
+    box-shadow: var(--glow-c);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MODULE AREA
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+#module-root {
+    position: absolute;
+    top: 52px;
+    left: 0; right: 0; bottom: 0;
+    background: var(--bg);
+    overflow: hidden;
+}
+
+.module-iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    display: block;
+}
+
+.module-empty {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    gap: 0.6rem;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.05em;
+}
+
+.module-empty .icon {
+    font-size: 2.5rem;
+    filter: drop-shadow(0 0 12px rgba(0,212,255,0.4));
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   COMMAND PALETTE
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+#shell-palette-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.72);
+    display: none;
+    align-items: flex-start;
+    justify-content: center;
+    z-index: 9000;
+    padding-top: 18vh;
+    backdrop-filter: blur(4px);
+}
+#shell-palette-overlay.active { display: flex; }
+
+#shell-palette {
+    width: 100%;
+    max-width: 540px;
+    background: var(--surface);
+    border: 1px solid rgba(0,212,255,0.35);
+    border-radius: 0;
+    box-shadow: var(--glow-c), var(--shadow);
+    overflow: hidden;
+    /* angled corners */
+    clip-path: polygon(
+        0 0,
+        calc(100% - 14px) 0,
+        100% 14px,
+        100% 100%,
+        14px 100%,
+        0 calc(100% - 14px)
+    );
+}
+
+#shell-palette input {
+    width: 100%;
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-size: 0.92rem;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.03em;
+    padding: 0.9rem 1.1rem;
+    outline: none;
+    border-bottom: 1px solid var(--border);
+    caret-color: var(--primary);
+}
+
+#shell-palette input::placeholder { color: var(--text-dim); }
+
+#shell-palette-results {
+    max-height: 50vh;
+    overflow-y: auto;
+}
+
+.shell-palette-item {
+    padding: 0.55rem 1.1rem;
+    cursor: pointer;
+    display: flex;
+    gap: 0.55rem;
+    align-items: center;
+    font-size: 0.83rem;
+    border-bottom: 1px solid rgba(28,28,64,0.6);
+    transition: background 0.1s;
+}
+.shell-palette-item:hover,
+.shell-palette-item.selected {
+    background: var(--primary-dim);
+    color: var(--primary);
+}
+.shell-palette-item.selected .pi-icon { filter: drop-shadow(0 0 4px var(--primary)); }
+.shell-palette-item .pi-icon { font-size: 1rem; }
+.shell-palette-item .pi-hint {
+    margin-left: auto;
+    color: var(--text-dim);
+    font-size: 0.7rem;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TOAST NOTIFICATIONS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+#shell-toasts {
+    position: fixed;
+    bottom: 1rem;
+    right:  1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    z-index: 9500;
+}
+
+.shell-toast {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    color: var(--text);
+    padding: 0.55rem 0.85rem;
+    border-radius: 0;
+    box-shadow: var(--glow-c), var(--shadow);
+    font-size: 0.82rem;
+    font-family: 'JetBrains Mono', monospace;
+    max-width: 360px;
+    animation: toast-in 0.18s ease-out;
+    clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%);
+}
+.shell-toast.success { border-left-color: var(--success); box-shadow: 0 0 12px rgba(0,255,136,0.2); }
+.shell-toast.warning { border-left-color: var(--warning); box-shadow: 0 0 12px rgba(255,153,0,0.2); }
+.shell-toast.error   { border-left-color: var(--danger);  box-shadow: var(--glow-r); }
+
+@keyframes toast-in {
+    from { transform: translateX(16px); opacity: 0; }
+    to   { transform: translateX(0);    opacity: 1; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   HUD LAYER — advanced cyberpunk geometry, neon glows, scan-line sweep
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Background: dual-frequency grid ────────────────────────────────────── */
+body {
+    background-image:
+        linear-gradient(rgba(0,212,255,0.028) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,212,255,0.028) 1px, transparent 1px),
+        linear-gradient(rgba(24,224,255,0.007) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(24,224,255,0.007) 1px, transparent 1px);
+    background-size: 40px 40px, 40px 40px, 200px 200px, 200px 200px;
+}
+
+/* ── Horizontal scan-line sweep ──────────────────────────────────────────── */
+@keyframes cp-sweep {
+    0%   { top: -4px; opacity: 0; }
+    5%   { opacity: 1; }
+    90%  { opacity: 0.6; }
+    100% { top: 100vh; opacity: 0; }
+}
+
+body::after {
+    content: '';
+    position: fixed;
+    left: 0; width: 100%;
+    height: 3px;
+    background: linear-gradient(90deg,
+        transparent 0%,
+        rgba(0,212,255,0.0) 10%,
+        rgba(0,212,255,0.55) 40%,
+        rgba(0,212,255,0.8)  50%,
+        rgba(0,212,255,0.55) 60%,
+        rgba(0,212,255,0.0) 90%,
+        transparent 100%
+    );
+    filter: blur(1px);
+    animation: cp-sweep 12s linear infinite;
+    pointer-events: none;
+    z-index: 99999;
+}
+
+/* ── Header — layered HUD chrome ─────────────────────────────────────────── */
+#shell-header {
+    background: linear-gradient(180deg, #0e0e26 0%, var(--surface) 100%);
+    border-bottom: 2px solid rgba(0,212,255,0.4);
+    box-shadow:
+        0 0   0 1px rgba(0,212,255,0.08),
+        0 1px 0   rgba(24,224,255,0.06),
+        0 4px 32px rgba(0,0,0,0.7),
+        inset 0 1px 0 rgba(255,255,255,0.03);
+}
+
+/* Decorative corner-bracket marks on the header via a pseudo-element strip */
+#shell-header::after {
+    content: '';
+    position: absolute;
+    bottom: -4px;
+    left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg,
+        rgba(24,224,255,0.6) 0px, rgba(24,224,255,0.6) 60px,
+        transparent 60px, transparent 80px,
+        rgba(0,212,255,0.3) 80px, rgba(0,212,255,0.3) calc(100% - 80px),
+        transparent calc(100% - 80px), transparent calc(100% - 60px),
+        rgba(24,224,255,0.6) calc(100% - 60px), rgba(24,224,255,0.6) 100%
+    );
+}
+
+/* ── Logo — system-ID monospace HUD readout ──────────────────────────────── */
+#shell-logo {
+    font-size: 0.78rem;
+    letter-spacing: 0.22em;
+    gap: 0.65rem;
+}
+
+#shell-logo::after {
+    content: 'v3.SYS';
+    font-size: 0.5rem;
+    letter-spacing: 0.14em;
+    color: var(--accent);
+    opacity: 0.5;
+    font-family: 'JetBrains Mono', monospace;
+    animation: cp-hud-blink 3s step-start infinite;
+    margin-left: 0.4rem;
+    align-self: center;
+}
+
+@keyframes cp-hud-blink {
+    0%, 80%, 100% { opacity: 0.5; }
+    85%, 95%      { opacity: 0.05; }
+}
+
+/* ── Nav buttons — HUD selection tabs ────────────────────────────────────── */
+.shell-nav-btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Active: yellow bottom bar with glow bloom */
+.shell-nav-btn.active::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 15%; width: 70%;
+    height: 2px;
+    background: var(--primary);
+    box-shadow: 0 0 6px var(--primary), 0 0 18px rgba(24,224,255,0.5);
+    border-radius: 0;
+}
+
+/* Hover: animated shimmer across the button */
+.shell-nav-btn:hover::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg,
+        transparent 0%, rgba(0,212,255,0.06) 50%, transparent 100%);
+    animation: cp-shimmer 0.6s ease-out;
+}
+
+@keyframes cp-shimmer {
+    from { transform: translateX(-100%); }
+    to   { transform: translateX(100%); }
+}
+
+/* ── Icon buttons — angled HUD controls ──────────────────────────────────── */
+.shell-icon-btn {
+    clip-path: polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px));
+    transition: color 0.15s, border-color 0.15s, box-shadow 0.2s, background 0.15s;
+}
+.shell-icon-btn:hover {
+    background: var(--accent-dim);
+    box-shadow: var(--glow-c), inset 0 0 12px rgba(0,212,255,0.06);
+}
+
+/* ── Command palette — HUD overlay ───────────────────────────────────────── */
+#shell-palette {
+    border: 1px solid rgba(0,212,255,0.5);
+    box-shadow:
+        var(--glow-c),
+        0 0 60px rgba(0,212,255,0.08),
+        var(--shadow);
+    clip-path: polygon(
+        0 0, calc(100% - 16px) 0,
+        100% 16px, 100% 100%,
+        16px 100%, 0 calc(100% - 16px)
+    );
+}
+
+/* Palette input — yellow caret + subtle yellow underline on focus */
+#shell-palette input {
+    border-bottom-color: rgba(0,212,255,0.2);
+    padding: 1rem 1.1rem;
+}
+
+/* ── Toasts — HUD alert chips ────────────────────────────────────────────── */
+.shell-toast {
+    clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    box-shadow: var(--glow-c), 0 4px 20px rgba(0,0,0,0.5);
+}
+
+/* ── Module root — subtle inner vignette ─────────────────────────────────── */
+#module-root::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center,
+        transparent 60%,
+        rgba(0,0,0,0.35) 100%
+    );
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* ── Empty state — HUD "no signal" look ─────────────────────────────────── */
+.module-empty {
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-size: 0.78rem;
+}
+.module-empty .icon {
+    font-size: 2.8rem;
+    filter: drop-shadow(0 0 18px rgba(0,212,255,0.5));
+    animation: cp-logo-pulse 2.4s ease-in-out infinite;
+}
+
+/* ── Scrollbars — neon thin rail ─────────────────────────────────────────── */
+::-webkit-scrollbar       { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: rgba(0,212,255,0.3); border-radius: 0; }
+::-webkit-scrollbar-thumb:hover { background: rgba(0,212,255,0.55); }
+
+/* ── Global input / select HUD styling ──────────────────────────────────── */
+input, select, textarea {
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    letter-spacing: 0.03em;
+}
+input:focus, select:focus, textarea:focus {
+    box-shadow: 0 0 8px rgba(0,212,255,0.2);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   NEON NOIR OVERRIDE — cyan × magenta synthwave, all shell pages
+   Cyan primary · magenta accent · red reserved for genuine danger
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. Palette swap ─────────────────────────────────────────────────────── */
+:root {
+    --bg:              #06070f;
+    --surface:         #0a0b1a;
+    --surface-lighter: #11132b;
+    --border:          #1b2348;
+    --border-mid:      #2e3b6e;
+
+    --primary:         #18e0ff;
+    --primary-hover:   #5cebff;
+    --primary-dim:     rgba(24,224,255,0.12);
+    --primary-glow:    rgba(24,224,255,0.35);
+
+    --accent:          #ff2e97;
+    --accent-dim:      rgba(255,46,151,0.12);
+    --accent-glow:     rgba(255,46,151,0.30);
+
+    --amber:           #fcee0a;
+    --text:            #ccd6f0;
+    --text-dim:        #6e79a8;
+    --text-bright:     #ffffff;
+    --font-mono:       'JetBrains Mono', 'Share Tech Mono', 'Courier New', monospace;
+
+    --glow-r: 0 0 6px rgba(24,224,255,0.85), 0 0 24px rgba(24,224,255,0.28);
+    --glow-c: 0 0 6px rgba(24,224,255,0.8),  0 0 20px rgba(24,224,255,0.2);
+    --glow-m: 0 0 6px rgba(255,46,151,0.8),  0 0 20px rgba(255,46,151,0.25);
+    --glow-y: 0 0 6px rgba(252,238,10,0.8),  0 0 20px rgba(252,238,10,0.25);
+}
+
+/* ── 2. Body — red matrix grid, scanlines ────────────────────────────────── */
+body {
+    background-color: #06070f !important;
+    background-image:
+        radial-gradient(ellipse at 0% 0%,    rgba(24,224,255,0.22) 0%, transparent 52%),
+        radial-gradient(ellipse at 100% 100%, rgba(255,46,151,0.14) 0%, transparent 46%),
+        repeating-linear-gradient(0deg,  transparent, transparent 39px, rgba(24,224,255,0.032) 39px, rgba(24,224,255,0.032) 40px),
+        repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(24,224,255,0.022) 39px, rgba(24,224,255,0.022) 40px)
+        !important;
+    background-size: auto !important;
+}
+/* Kill the old cyan sweep line */
+body::after {
+    background: linear-gradient(90deg,
+        transparent 0%, rgba(24,224,255,0.0) 10%,
+        rgba(24,224,255,0.55) 40%, rgba(24,224,255,0.8) 50%,
+        rgba(24,224,255,0.55) 60%, rgba(24,224,255,0.0) 90%,
+        transparent 100%
+    ) !important;
+    filter: blur(1px) !important;
+}
+
+/* ── 3. Header ───────────────────────────────────────────────────────────── */
+#shell-header {
+    background: rgba(8,9,20,0.98) !important;
+    border-bottom: 1px solid rgba(24,224,255,0.38) !important;
+    box-shadow: 0 1px 0 rgba(24,224,255,0.14), 0 4px 24px rgba(0,0,0,0.65) !important;
+}
+#shell-header::after {
+    background: linear-gradient(90deg,
+        rgba(24,224,255,0.95)   0px,  rgba(24,224,255,0.95)   55px,
+        rgba(24,224,255,0.28)   55px, rgba(24,224,255,0.28)   72px,
+        transparent           72px, transparent            calc(50% - 44px),
+        rgba(24,224,255,0.16)   calc(50% - 44px), rgba(24,224,255,0.16) calc(50% + 44px),
+        transparent           calc(50% + 44px), transparent         calc(100% - 72px),
+        rgba(24,224,255,0.28)   calc(100% - 72px), rgba(24,224,255,0.28) calc(100% - 55px),
+        rgba(24,224,255,0.95)   calc(100% - 55px), rgba(24,224,255,0.95) 100%
+    ) !important;
+}
+
+/* ── 4. Logo ─────────────────────────────────────────────────────────────── */
+#shell-logo {
+    color: var(--primary) !important;
+    text-shadow: var(--glow-r) !important;
+}
+#shell-logo .logo-dot {
+    background: var(--primary) !important;
+    box-shadow: var(--glow-r) !important;
+}
+@keyframes cp-logo-pulse {
+    0%, 100% { opacity: 1;    box-shadow: var(--glow-r); }
+    50%       { opacity: 0.5; box-shadow: none; }
+}
+#shell-logo::after {
+    color: var(--accent) !important;
+}
+
+/* ── 5. Nav buttons — inverted active, chamfered ─────────────────────────── */
+.shell-nav-btn {
+    font-family: var(--font-mono) !important;
+    font-size: 0.68rem !important;
+    letter-spacing: 0.1em !important;
+    text-transform: uppercase !important;
+    color: var(--text-dim) !important;
+    transition: all 0.12s !important;
+}
+.shell-nav-btn:hover {
+    color: var(--primary) !important;
+    background: rgba(24,224,255,0.06) !important;
+    border-bottom-color: rgba(24,224,255,0.35) !important;
+}
+.shell-nav-btn.active {
+    color: #000 !important;
+    background: var(--primary) !important;
+    border-bottom-color: var(--primary) !important;
+    text-shadow: none !important;
+    font-weight: 700 !important;
+    clip-path: polygon(0 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%) !important;
+}
+.shell-nav-btn.active::after { display: none !important; }
+/* Hover shimmer — red channel */
+.shell-nav-btn:hover::before {
+    background: linear-gradient(90deg,
+        transparent 0%, rgba(24,224,255,0.06) 50%, transparent 100%) !important;
+}
+
+/* ── 6. Quick-action icon button ─────────────────────────────────────────── */
+.shell-icon-btn {
+    border-color: rgba(24,224,255,0.22) !important;
+    color: var(--text-dim) !important;
+}
+.shell-icon-btn:hover {
+    color: var(--primary) !important;
+    border-color: var(--primary) !important;
+    background: rgba(24,224,255,0.08) !important;
+    box-shadow: var(--glow-r) !important;
+}
+
+/* ── 7. Command palette ──────────────────────────────────────────────────── */
+#shell-palette {
+    background: rgba(7,8,16,0.99) !important;
+    border-color: rgba(24,224,255,0.42) !important;
+    border-top: 3px solid var(--primary) !important;
+    box-shadow: var(--glow-r), 0 0 60px rgba(24,224,255,0.06), 0 8px 32px rgba(0,0,0,0.7) !important;
+    clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px)) !important;
+}
+#shell-palette input {
+    border-bottom: 1px solid rgba(24,224,255,0.2) !important;
+    caret-color: var(--primary) !important;
+    color: var(--text) !important;
+}
+#shell-palette input:focus {
+    border-bottom-color: var(--primary) !important;
+    background: rgba(24,224,255,0.03) !important;
+}
+.shell-palette-item:hover,
+.shell-palette-item.selected {
+    background: rgba(24,224,255,0.1) !important;
+    color: var(--primary) !important;
+}
+
+/* ── 8. Toasts ───────────────────────────────────────────────────────────── */
+.shell-toast {
+    background: rgba(7,8,16,0.99) !important;
+    border-color: var(--border-mid) !important;
+    border-left: 3px solid var(--primary) !important;
+    box-shadow: var(--glow-r), 0 4px 20px rgba(0,0,0,0.5) !important;
+    color: var(--text) !important;
+    clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px)) !important;
+}
+.shell-toast.success { border-left-color: #00ff88 !important; }
+.shell-toast.warning { border-left-color: var(--amber) !important; }
+.shell-toast.error   { border-left-color: var(--primary) !important; }
+
+/* ── 9. Scrollbars ───────────────────────────────────────────────────────── */
+::-webkit-scrollbar       { width: 4px; height: 4px; background: #06070f; }
+::-webkit-scrollbar-thumb { background: rgba(24,224,255,0.32) !important; border-radius: 0; }
+::-webkit-scrollbar-thumb:hover { background: rgba(24,224,255,0.65) !important; }
+
+/* ── 10. Global input focus ──────────────────────────────────────────────── */
+input:focus, select:focus, textarea:focus {
+    box-shadow: 0 0 0 1px rgba(24,224,255,0.3), 0 0 8px rgba(24,224,255,0.15) !important;
+    border-color: var(--primary) !important;
+    outline: none !important;
+}
+
+/* ── 11. Module empty state ──────────────────────────────────────────────── */
+.module-empty { color: var(--text-dim) !important; }
+.module-empty .icon { filter: drop-shadow(0 0 18px rgba(24,224,255,0.5)) !important; }
+
+/* ── 12. Snappy nav transitions ──────────────────────────────────────────── */
+@keyframes shell-snap-in {
+    0%   { opacity: 0; transform: translateY(-4px) scaleY(0.988); }
+    100% { opacity: 1; transform: translateY(0) scaleY(1); }
+}
+.shell-nav-btn {
+    transition: color 0.1s, background 0.1s, border-color 0.1s !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SHELL ANIMATION PACK — Ambient Cyberpunk Life
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Logo chromatic aberration glitch */
+@keyframes shell-logo-glitch {
+    0%,  88%, 100% { text-shadow: 0 0 10px rgba(24,224,255,0.55); transform: none; }
+    89%  { text-shadow: 5px 0 0 rgba(255,46,151,0.8), -5px 0 0 rgba(24,224,255,0.9);
+           transform: skewX(3deg); }
+    90%  { text-shadow: -3px 0 0 rgba(255,46,151,0.5), 3px 0 0 rgba(24,224,255,0.7);
+           transform: skewX(-1.5deg); }
+    91%  { text-shadow: 0 0 10px rgba(24,224,255,0.55); transform: none; }
+    92%  { text-shadow: 2px 0 0 rgba(252,238,10,0.5); transform: skewX(0.5deg); }
+}
+#shell-logo {
+    animation: shell-logo-glitch 7s ease-in-out infinite;
+    display: inline-flex;
+}
+
+/* Logo dot — between pulse and danger flash */
+@keyframes dot-danger {
+    0%,  85%, 100% { background: var(--primary); box-shadow: var(--glow-r); }
+    87%             { background: #fff;           box-shadow: 0 0 12px #fff; }
+    88%             { background: var(--primary); box-shadow: var(--glow-r); }
+    90%             { background: var(--amber);   box-shadow: var(--glow-y); }
+    92%             { background: var(--primary); box-shadow: var(--glow-r); }
+}
+#shell-logo .logo-dot {
+    animation: dot-danger 7s ease-in-out infinite !important;
+}
+
+/* Active nav tab — flicker */
+@keyframes shell-tab-flicker {
+    0%, 93%, 100% { opacity: 1; }
+    94%            { opacity: 0.65; }
+    95%            { opacity: 1; }
+    97%            { opacity: 0.82; }
+}
+.shell-nav-btn.active {
+    animation: shell-tab-flicker 9s ease-in-out infinite !important;
+}
+
+/* Header accent crawl */
+@keyframes shell-accent-crawl {
+    0%   { background-position: 0 0; }
+    100% { background-position: 200px 0; }
+}
+#shell-header::after {
+    animation: shell-accent-crawl 3s linear infinite !important;
+}
+
+/* Header data-received blip (JS-driven via class) — gentle duotone breath */
+@keyframes shell-header-blip {
+    0%   { box-shadow: 0 1px 0 rgba(24,224,255,0.14), 0 4px 24px rgba(0,0,0,0.65); }
+    45%  { box-shadow: 0 1px 0 rgba(255,46,151,0.45), 0 6px 32px rgba(255,46,151,0.14); }
+    100% { box-shadow: 0 1px 0 rgba(24,224,255,0.14), 0 4px 24px rgba(0,0,0,0.65); }
+}
+#shell-header.blip {
+    animation: shell-header-blip 0.7s cubic-bezier(0.4,0,0.2,1) !important;
+}
+
+/* Toast snap-in */
+@keyframes shell-toast-snap {
+    0%   { opacity: 0; transform: translateX(20px) scaleX(0.92); }
+    100% { opacity: 1; transform: translateX(0)     scaleX(1); }
+}
+.shell-toast {
+    animation: shell-toast-snap 0.16s cubic-bezier(0.19,1,0.22,1) both !important;
+}
+
+/* Palette item hover — scan shimmer */
+@keyframes pi-shimmer {
+    0%   { background-position: -200% 0; }
+    100% { background-position: 300% 0; }
+}
+.shell-palette-item:hover,
+.shell-palette-item.selected {
+    background-image: linear-gradient(
+        105deg, transparent 35%, rgba(24,224,255,0.06) 50%, transparent 65%
+    ) !important;
+    background-size: 300% 100% !important;
+    animation: pi-shimmer 0.5s ease forwards !important;
+}

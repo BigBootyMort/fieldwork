@@ -119,6 +119,22 @@ def start_scheduler(graph_db) -> AsyncIOScheduler:
         max_instances=1,      # never run overlapping cycles
         coalesce=True,        # merge missed fires into one
     )
+
+    # Investigation monitors — re-run orchestrator on registered targets + diff
+    try:
+        from inv_monitor import run_due as _inv_run_due
+        _scheduler.add_job(
+            _inv_run_due,
+            trigger=IntervalTrigger(minutes=30),
+            args=[graph_db],
+            id="inv_monitor_cycle",
+            replace_existing=True,
+            max_instances=1,
+            coalesce=True,
+        )
+    except Exception as exc:
+        log.warning("inv_monitor job not registered: %s", exc)
+
     _scheduler.start()
     log.info("Scheduler started — monitor polls every %d min", _POLL_INTERVAL)
     return _scheduler

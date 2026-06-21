@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Runi // FIELDWORK</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <header id="shell-header">
+        <div id="shell-logo">
+            <span class="logo-dot"></span>
+            // RUNI
+        </div>
+        <nav id="shell-nav"></nav>
+        <div id="shell-quick-actions">
+            <button class="shell-icon-btn" id="shell-palette-btn"
+                    title="Command palette (Ctrl/Cmd+K)">⌘</button>
+        </div>
+    </header>
+
+    <main id="module-root">
+        <div class="module-empty">
+            <div class="icon">🤖</div>
+            <div>Booting modules…</div>
+        </div>
+    </main>
+
+    <!-- Command palette overlay -->
+    <div id="shell-palette-overlay">
+        <div id="shell-palette">
+            <input type="text" id="shell-palette-input"
+                   placeholder="Type a command, module, or action…"
+                   autocomplete="off">
+            <div id="shell-palette-results"></div>
+        </div>
+    </div>
+
+    <!-- Toast container -->
+    <div id="shell-toasts"></div>
+
+    <!-- Shell runtime -->
+    <script src="/shell.js"></script>
+
+    <!-- Matrix rain + ambient glitch -->
+    <canvas id="fw-matrix-rain" style="
+        position:fixed;inset:0;pointer-events:none;z-index:0;
+        opacity:0.032;mix-blend-mode:screen;
+    "></canvas>
+    <script>
+    (function () {
+        const canvas = document.getElementById('fw-matrix-rain');
+        const ctx    = canvas.getContext('2d');
+        const CHARS  = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%<>/\\|[]{}';
+        const COL_W  = 14;
+        let cols, drops;
+
+        function initRain() {
+            canvas.width  = window.innerWidth;
+            canvas.height = window.innerHeight;
+            cols  = Math.floor(canvas.width / COL_W);
+            drops = Array.from({ length: cols }, () => (Math.random() * -50) | 0);
+        }
+        function drawRain() {
+            ctx.fillStyle = 'rgba(7,5,6,0.18)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.font = `${COL_W - 2}px 'JetBrains Mono',monospace`;
+            for (let i = 0; i < cols; i++) {
+                const y = drops[i] * COL_W;
+                ctx.fillStyle = `rgba(255,0,60,${0.55 + Math.random() * 0.45})`;
+                ctx.fillText(CHARS[Math.random() * CHARS.length | 0], i * COL_W, y);
+                if (drops[i] > 1) {
+                    ctx.fillStyle = `rgba(255,0,60,${0.07 + Math.random() * 0.1})`;
+                    ctx.fillText(CHARS[Math.random() * CHARS.length | 0], i * COL_W, y - COL_W);
+                }
+                if (y > canvas.height && Math.random() > 0.975) drops[i] = 0;
+                drops[i]++;
+            }
+        }
+        initRain();
+        window.addEventListener('resize', initRain, { passive: true });
+        setInterval(drawRain, 55);
+
+        // Header data-received blip
+        function headerBlip() {
+            const hdr = document.getElementById('shell-header');
+            if (hdr) {
+                hdr.classList.add('blip');
+                setTimeout(() => hdr.classList.remove('blip'), 260);
+            }
+        }
+        setInterval(headerBlip, 6000 + Math.random() * 6000);
+    })();
+    </script>
+
+    <!-- Native modules register themselves via these manifest scripts.
+         Load order sets the nav order.  Iframe modules (like Fieldwork) are
+         auto-registered from the backend's /api/shell/modules response.
+
+         To add a new native module:
+           1. Create shell/frontend/modules/<id>/manifest.js
+           2. Add  <script src="/modules/<id>/manifest.js"></script>  here
+           3. Create shell/backend/app/modules/<id>/__init__.py
+           4. Register it in shell/backend/app/main.py  (registry.register)
+    -->
+    <script src="/modules/news/manifest.js"></script>
+    <script src="/modules/reports/manifest.js"></script>
+    <script src="/modules/markets/manifest.js"></script>
+    <script src="/modules/agent/manifest.js"></script>
+    <script src="/modules/gigs/manifest.js"></script>
+    <script src="/modules/presence/manifest.js"></script>
+    <!--
+    <script src="/modules/calendar/manifest.js"></script>
+    <script src="/modules/alerts/manifest.js"></script>
+    -->
+</body>
+</html>

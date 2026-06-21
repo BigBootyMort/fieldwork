@@ -3,6 +3,13 @@
 *.env
 !.env.example
 
+# Runtime secrets + state (never commit real API keys or per-run state)
+backend/app/runtime_api_keys.json
+backend/app/key_verifications.json
+backend/app/inv_monitors.json
+shell/backend/app/modules/agent/agent_config.json
+shell/backend/app/modules/news/watchlist.json
+
 # ── Python ────────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
@@ -36,6 +43,11 @@ node_modules/
 
 # ── Claude Code local settings ───────────────────────────────────
 .claude/settings.local.json
+# Local Claude Code state (worktrees, session/memory data, snapshots)
+.claude/worktrees/
+.claude/projects/
+.claude/shell-snapshots/
+.claude/todos/
 
 # ── Scratch / legacy ─────────────────────────────────────────────
 NEW/

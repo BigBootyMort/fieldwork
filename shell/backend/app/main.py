@@ -1,0 +1,113 @@
+"""
+Shell backend — the Runi-style chrome around Fieldwork + future modules.
+
+Exposes:
+  GET  /api/shell/health               — liveness
+  GET  /api/shell/modules              — registered module list (for the nav)
+  GET  /api/shell/config               — public settings the UI needs (URLs etc.)
+
+Module-specific routes are mounted under each module's `prefix`
+(e.g. /api/news/feeds, /api/calendar/events) when those modules ship.
+For v1 the only module is Fieldwork which keeps its existing backend
+at FIELDWORK_API and is loaded into the shell via iframe.
+"""
+from __future__ import annotations
+
+import logging
+from contextlib  import asynccontextmanager
+from fastapi     import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from deps        import build_deps, Settings
+from registry    import ModuleRegistry
+from modules.fieldwork import manifest as fieldwork_manifest
+from modules.news      import manifest as news_manifest
+from modules.reports   import manifest as reports_manifest
+from modules.markets   import manifest as markets_manifest
+from modules.agent     import manifest as agent_manifest
+from modules.gigs      import manifest as gigs_manifest
+from modules.presence  import manifest as presence_manifest
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
+log = logging.getLogger("shell")
+
+
+# ── Registry + deps wired at import time ────────────────────────────────────
+# Add future modules here — order matters for dependency resolution.
+registry = ModuleRegistry()
+registry.register(fieldwork_manifest)
+registry.register(news_manifest)
+registry.register(reports_manifest)
+registry.register(markets_manifest)
+registry.register(agent_manifest)
+registry.register(gigs_manifest)
+registry.register(presence_manifest)
+# Future modules:
+#   from modules.calendar import manifest as cal_manifest
+#   registry.register(cal_manifest)
+#   from modules.alerts import manifest as alerts_manifest
+#   registry.register(alerts_manifest)
+
+deps: dict = {}
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Build shared deps on startup, close them on shutdown."""
+    global deps
+    deps = build_deps()
+    log.info("shell deps built — %d modules registered", len(registry.all()))
+    registry.bootstrap(app, deps)
+    yield
+    # Cleanup
+    drv = deps.get("graph_db")
+    if drv:
+        await drv.close()
+    http = deps.get("http")
+    if http:
+        await http.aclose()
+
+
+app = FastAPI(title="Runi Shell", version="0.1.0", lifespan=lifespan)
+
+# Permissive CORS — both frontends are localhost-bound by docker-compose,
+# but the legacy Fieldwork frontend (port 3000) might fetch the shell's
+# /api/shell/* endpoints during the iframe-bridge handshake.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+# ── Shell-level endpoints ───────────────────────────────────────────────────
+@app.get("/api/shell/health")
+async def health():
+    return {"status": "ok", "modules": len(registry.all())}
+
+
+@app.get("/api/shell/modules")
+async def list_modules():
+    """Return module manifests the frontend uses to build the nav."""
+    settings: Settings = deps["settings"]
+    out = []
+    for m in registry.list_json():
+        # Inject iframe URL for legacy modules that defer to env config
+        if m["kind"] == "iframe" and m["url"] is None and m["id"] == "fieldwork":
+            m["url"] = settings.FIELDWORK_FRONT
+        out.append(m)
+    return {"modules": out, "count": len(out)}
+
+
+@app.get("/api/shell/config")
+async def public_config():
+    """Public config the UI may need (no secrets)."""
+    s: Settings = deps["settings"]
+    return {
+        "fieldwork_api":   s.FIELDWORK_API,
+        "fieldwork_front": s.FIELDWORK_FRONT,
+        "ollama_url":      s.OLLAMA_URL,
+        "ollama_model":    s.OLLAMA_MODEL,
+    }

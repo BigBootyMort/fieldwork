@@ -1,1 +1,91 @@
-/* Fieldwork styles */
+/* Fieldwork OSINT — shared stylesheet
+   All pages pull the Edgerunner palette from here.
+   ─────────────────────────────────────────────── */
+
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=Share+Tech+Mono&display=swap');
+
+/* ── Palette ──────────────────────────────────────────────────────── */
+:root {
+    --font-mono:       'JetBrains Mono', 'Share Tech Mono', 'Courier New', monospace;
+
+    --bg:              #070506;
+    --surface:         #0a0608;
+    --surface-lighter: #130a0d;
+
+    /* Primary — Tactical Crimson */
+    --primary:         #ff003c;
+    --primary-hover:   #ff2255;
+    --primary-dim:     rgba(255,0,60,0.12);
+
+    /* Secondary — Electric Cyan */
+    --secondary:       #00f0ff;
+    --secondary-hover: #33f5ff;
+
+    /* Tertiary — Neon Amber */
+    --amber:           #fcee0a;
+    --amber-dim:       rgba(252,238,10,0.15);
+
+    /* Structural mids */
+    --border:          #2a1018;
+    --border-mid:      #502a31;
+    --text:            #c8b8bc;
+    --text-dim:        #7a4a55;
+
+    /* Glow shadows */
+    --glow-r: 0 0 6px rgba(255,0,60,0.9),   0 0 24px rgba(255,0,60,0.3);
+    --glow-c: 0 0 6px rgba(0,240,255,0.8),  0 0 20px rgba(0,240,255,0.2);
+    --glow-y: 0 0 6px rgba(252,238,10,0.8), 0 0 20px rgba(252,238,10,0.25);
+    --glow-g: 0 0 6px rgba(0,255,136,0.7),  0 0 18px rgba(0,255,136,0.2);
+
+    /* Semantic */
+    --danger:  #ff003c;
+    --success: #00ff88;
+    --warning: #fcee0a;
+    --info:    #00f0ff;
+
+    /* Compat aliases */
+    --red:         #ff003c;
+    --red-dim:     rgba(255,0,60,0.25);
+    --red-glow:    var(--glow-r);
+    --crimson:     #8b0000;
+    --crimson-mid: #500b14;
+    --neon-green:  #00ff88;
+    --neon-amber:  #fcee0a;
+}
+
+/* ── Base ─────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background-color: #070506;
+    background-image:
+        radial-gradient(ellipse at 0% 0%,    rgba(90,0,30,0.24) 0%, transparent 52%),
+        radial-gradient(ellipse at 100% 100%, rgba(60,0,20,0.14) 0%, transparent 46%),
+        repeating-linear-gradient(0deg,   transparent, transparent 39px, rgba(255,0,60,0.032) 39px, rgba(255,0,60,0.032) 40px),
+        repeating-linear-gradient(90deg,  transparent, transparent 39px, rgba(255,0,60,0.022) 39px, rgba(255,0,60,0.022) 40px);
+    color: var(--text);
+    line-height: 1.6;
+}
+
+/* Scanline overlay */
+body::before {
+    content: '';
+    position: fixed; inset: 0; pointer-events: none; z-index: 9998;
+    background: repeating-linear-gradient(
+        0deg, rgba(0,0,0,0) 0px, rgba(0,0,0,0) 2px,
+        rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 3px
+    );
+}
+
+/* ── Typography ───────────────────────────────────────────────────── */
+h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+/* ── Scrollbar ────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; height: 4px; background: #070506; }
+::-webkit-scrollbar-thumb { background: rgba(255,0,60,0.32); }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,0,60,0.68); }

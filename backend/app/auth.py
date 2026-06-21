@@ -34,6 +34,24 @@ if not SECRET_KEY:
 ALGORITHM            = "HS256"
 ACCESS_EXPIRE_HOURS  = int(os.getenv("ACCESS_TOKEN_EXPIRE_HOURS", "8"))
 
+# ── Single-user / personal-deployment switch ──────────────────────────────────
+# When AUTH_DISABLED=true, all auth dependencies short-circuit and return
+# the same default admin user. Use ONLY for single-user / loopback-only
+# deployments (e.g. a personal Jarvis dashboard).
+AUTH_DISABLED = os.getenv("AUTH_DISABLED", "false").lower() in ("true", "1", "yes")
+
+_DEFAULT_USER: dict = {
+    "sub":      "00000000-0000-0000-0000-000000000001",
+    "username": "owner",
+    "role":     "admin",
+}
+
+if AUTH_DISABLED:
+    log.warning(
+        "AUTH_DISABLED=true — every request is treated as 'owner' (admin). "
+        "Do NOT expose this instance beyond localhost."
+    )
+
 # ── Password hashing (bcrypt direct — bypasses passlib's bcrypt 5.x issues) ──
 def _to_bytes(plain: str) -> bytes:
     """Encode and truncate to 72 bytes — bcrypt's hard limit."""
@@ -81,8 +99,10 @@ async def get_current_user(token: str = Depends(_oauth2)) -> dict:
     """
     Validate the Bearer token and return its payload.
     Payload keys: sub (user_id), username, role.
-    Raises 401 if missing or invalid.
+    Raises 401 if missing or invalid (unless AUTH_DISABLED).
     """
+    if AUTH_DISABLED:
+        return _DEFAULT_USER
     if not token:
         raise _401
     payload = decode_token(token)
@@ -93,6 +113,8 @@ async def get_current_user(token: str = Depends(_oauth2)) -> dict:
 
 async def require_admin(user: dict = Depends(get_current_user)) -> dict:
     """Raises 403 if the authenticated user is not an admin."""
+    if AUTH_DISABLED:
+        return _DEFAULT_USER
     if user.get("role") != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -106,6 +128,8 @@ async def optional_user(token: str = Depends(_oauth2)) -> Optional[dict]:
     Like get_current_user but returns None instead of raising if no/bad token.
     Use for endpoints that work both authenticated and unauthenticated.
     """
+    if AUTH_DISABLED:
+        return _DEFAULT_USER
     if not token:
         return None
     return decode_token(token)   # may be None if expired

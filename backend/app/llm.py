@@ -20,6 +20,8 @@ from typing import Optional
 
 import httpx
 
+from llm_bridge import claude_complete, NoClaudeError  # Claude API → subscription bridge
+
 log = logging.getLogger(__name__)
 
 OLLAMA_URL   = os.getenv("OLLAMA_URL",   "http://ollama:11434")
@@ -68,15 +70,28 @@ async def _generate(
     model:   Optional[str] = None,
     timeout: int = 180,
 ) -> str:
-    m = model or OLLAMA_MODEL
-    payload = {
-        "model":   m,
-        "prompt":  prompt,
-        "system":  system,
-        "stream":  False,
-        "options": {"temperature": 0.1, "num_predict": 2048},
-    }
     async with httpx.AsyncClient(timeout=timeout) as client:
+        # 1. Claude (API → subscription bridge); 2. Ollama fallback
+        try:
+            text, _engine = await claude_complete(
+                system=system or "You are a precise OSINT analysis assistant.",
+                user=prompt, http=client, temperature=0.1, max_tokens=2048,
+            )
+            if text:
+                return text.strip()
+        except NoClaudeError:
+            pass
+        except Exception as exc:
+            log.warning("Claude generate failed (%s) — using Ollama", exc)
+
+        m = model or OLLAMA_MODEL
+        payload = {
+            "model":   m,
+            "prompt":  prompt,
+            "system":  system,
+            "stream":  False,
+            "options": {"temperature": 0.1, "num_predict": 2048},
+        }
         r = await client.post(f"{OLLAMA_URL}/api/generate", json=payload)
         r.raise_for_status()
         return r.json()["response"].strip()
@@ -231,14 +246,32 @@ async def chat(
             messages.append({"role": role, "content": h.get("content", "")})
     messages.append({"role": "user", "content": message})
 
-    payload = {
-        "model":    m,
-        "messages": messages,
-        "stream":   False,
-        "system":   system,
-        "options":  {"temperature": 0.2, "num_predict": 1024},
-    }
     async with httpx.AsyncClient(timeout=timeout) as client:
+        # 1. Claude (API → subscription bridge) — flatten history into one prompt
+        try:
+            convo = "\n".join(
+                f"{'User' if msg['role'] == 'user' else 'Assistant'}: {msg['content']}"
+                for msg in messages
+            )
+            text, _engine = await claude_complete(
+                system=system, user=convo, http=client,
+                temperature=0.2, max_tokens=1024,
+            )
+            if text:
+                return text.strip()
+        except NoClaudeError:
+            pass
+        except Exception as exc:
+            log.warning("Claude chat failed (%s) — using Ollama", exc)
+
+        # 2. Ollama fallback
+        payload = {
+            "model":    m,
+            "messages": messages,
+            "stream":   False,
+            "system":   system,
+            "options":  {"temperature": 0.2, "num_predict": 1024},
+        }
         r = await client.post(f"{OLLAMA_URL}/api/chat", json=payload)
         r.raise_for_status()
         return r.json()["message"]["content"].strip()
