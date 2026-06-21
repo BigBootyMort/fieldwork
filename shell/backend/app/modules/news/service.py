@@ -566,6 +566,40 @@ class NewsService:
             return {"target": target, "error": str(exc),
                     "hint": "Is the Fieldwork backend reachable from the shell?"}
 
+    # ── Warm start: poll + pre-generate the brief on backend startup ───────
+    async def warm_start(self) -> None:
+        """
+        On startup, poll feeds and pre-build the morning brief in the background
+        so the News module is ready the moment the user opens it. Fully guarded
+        — never blocks or breaks startup. Opt out with NEWS_WARM_START=0.
+        """
+        import os
+        if os.getenv("NEWS_WARM_START", "1").lower() in ("0", "false", "off", "no"):
+            return
+        # Wait for Neo4j to be reachable (deps may still be starting)
+        for _ in range(20):
+            try:
+                async with self.driver.session() as s:
+                    await s.run("RETURN 1")
+                break
+            except Exception:
+                await asyncio.sleep(3)
+        else:
+            log.warning("news warm-start: Neo4j not ready — skipping")
+            return
+        try:
+            res = await self.poll_all()
+            log.info("news warm-start: polled %d new article(s)", res.get("new_total", 0))
+        except Exception as exc:
+            log.warning("news warm-start poll failed: %s", exc)
+            return
+        try:
+            b = await self.morning_brief(window_h=12, force=True)
+            log.info("news warm-start: brief ready (engine=%s, %d articles)",
+                     b.get("engine"), b.get("article_count", 0))
+        except Exception as exc:
+            log.warning("news warm-start brief failed: %s", exc)
+
     # ── LLM: status check ──────────────────────────────────────────────────
     async def check_llm(self) -> dict:
         """Return Ollama reachability + whether the configured model is loaded."""
