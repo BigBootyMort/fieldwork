@@ -25,7 +25,7 @@ log = logging.getLogger("llm_bridge")
 
 ANTHROPIC_API = "https://api.anthropic.com/v1/messages"
 ANTHROPIC_VERSION = "2023-06-01"
-DEFAULT_CLAUDE_MODEL = "claude-3-5-haiku-20241022"
+DEFAULT_CLAUDE_MODEL = "claude-haiku-4-5-20251001"
 DEFAULT_BRIDGE_URL = "http://host.docker.internal:8088"
 
 # Shared with the Agent settings UI and the Markets module.
@@ -59,6 +59,17 @@ def api_configured() -> bool:
     return bool(get_cfg("ANTHROPIC_API_KEY"))
 
 
+def _auth_headers(api_key: str) -> dict:
+    """sk-ant-oat (subscription OAuth) → Bearer + oauth beta; else x-api-key."""
+    h = {"anthropic-version": ANTHROPIC_VERSION, "content-type": "application/json"}
+    if api_key.startswith("sk-ant-oat"):
+        h["authorization"] = f"Bearer {api_key}"
+        h["anthropic-beta"] = "oauth-2025-04-20"
+    else:
+        h["x-api-key"] = api_key
+    return h
+
+
 async def call_claude_api(
     *, system: str, user: str, http: httpx.AsyncClient,
     temperature: float = 0.3, max_tokens: int = 1500, model: str | None = None,
@@ -67,11 +78,7 @@ async def call_claude_api(
     if not api_key:
         raise NoClaudeError("ANTHROPIC_API_KEY not configured")
     target = model or get_cfg("ANTHROPIC_MODEL", DEFAULT_CLAUDE_MODEL)
-    headers = {
-        "x-api-key": api_key,
-        "anthropic-version": ANTHROPIC_VERSION,
-        "content-type": "application/json",
-    }
+    headers = _auth_headers(api_key)
     payload = {
         "model": target,
         "max_tokens": max_tokens,

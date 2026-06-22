@@ -125,7 +125,7 @@ from llm_bridge import claude_complete, NoClaudeError  # shared Claude API + bri
 async def _call_claude(
     prompt: str,
     system: str = "You are a professional investment analyst.",
-    model: str = "claude-3-5-haiku-20241022",
+    model: str = "claude-haiku-4-5-20251001",
     max_tokens: int = 2000,
     http_client: httpx.AsyncClient = None,
 ) -> tuple[str, str]:
@@ -527,7 +527,7 @@ class OrderRequest(BaseModel):
 class ResearchRequest(BaseModel):
     symbol:            str
     company_name:      str
-    model:             str = "claude-3-5-haiku-20241022"
+    model:             str = "claude-haiku-4-5-20251001"
     include_contracts: bool = True
     include_macro:     bool = True
 
