@@ -611,6 +611,21 @@ window.MarketsView = (() => {
             });
         });
 
+        // Click a card → open AI Analysis with the right ticker.
+        // Crypto needs Yahoo's "-USD" form (BTC → BTC-USD) for indicators to resolve.
+        grid.querySelectorAll('.mkt-card').forEach(card => {
+            card.style.cursor = 'pointer';
+            card.title = 'Click to analyse';
+            card.addEventListener('click', e => {
+                if (e.target.closest('.mkt-remove')) return;
+                const sym  = card.dataset.sym;
+                const type = card.dataset.type;
+                if (!sym) return;
+                const ticker = (type === 'crypto' && !/-USD$/i.test(sym)) ? `${sym}-USD` : sym;
+                _mktGoAnalyse(ticker);
+            });
+        });
+
         // Trigger ticker flash for changed prices
         _flashChangedPrices();
     }
@@ -1745,7 +1760,15 @@ async function _runAnalysis() {
   if (loadingMsg) loadingMsg.textContent = 'Fetching indicators…';
 
   try {
-    const indResp = await fetch(`${BACKEND}/indicators?symbol=${encodeURIComponent(symbol)}&range=${range}`);
+    let useSym = symbol;
+    let indResp = await fetch(`${BACKEND}/indicators?symbol=${encodeURIComponent(useSym)}&range=${range}`);
+    // Crypto fallback: a bare crypto ticker (e.g. BTC) resolves on Yahoo only
+    // as BTC-USD. Retry once if the first lookup failed and it looks like crypto.
+    if (!indResp.ok && !/-USD$/i.test(useSym) && (CRYPTO_IDS[useSym] || /^[A-Z]{2,6}$/.test(useSym))) {
+      const alt = `${useSym}-USD`;
+      const retry = await fetch(`${BACKEND}/indicators?symbol=${encodeURIComponent(alt)}&range=${range}`);
+      if (retry.ok) { indResp = retry; useSym = alt; if (input) input.value = alt; }
+    }
     if (!indResp.ok) throw new Error(`Indicators: HTTP ${indResp.status}`);
     const ind = await indResp.json();
 

@@ -898,12 +898,28 @@ select:focus { border-bottom-color: var(--primary) !important; }
     border-radius: 0 !important;
     clip-path: polygon(0 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%) !important;
     position: relative !important;
-    transition: border-color 0.12s !important;
+    transition: border-color 0.16s, box-shadow 0.16s, transform 0.16s cubic-bezier(0.19,1,0.22,1) !important;
 }
 .mkt-card:hover {
-    border-color: rgba(24,224,255,0.45) !important;
-    background: rgba(13,15,30,0.96) !important;
+    border-color: rgba(24,224,255,0.55) !important;
+    border-left-color: var(--mkt-accent, #18e0ff) !important;
+    background: rgba(13,15,30,0.97) !important;
+    transform: translateY(-3px) !important;
+    box-shadow: 0 0 0 1px rgba(24,224,255,0.14),
+                0 8px 26px rgba(0,0,0,0.45),
+                0 0 22px rgba(24,224,255,0.10) !important;
 }
+/* Thin cyan scan line that sweeps the top edge on hover — signals the card is
+   live/interactive without overlapping the dense card content. */
+.mkt-card::before {
+    content: '' !important;
+    position: absolute !important;
+    top: 0 !important; left: 0 !important; right: 0 !important; height: 2px !important;
+    background: linear-gradient(90deg, transparent, var(--mkt-accent, #18e0ff), transparent) !important;
+    opacity: 0 !important; transition: opacity 0.18s !important;
+    pointer-events: none !important; z-index: 2 !important;
+}
+.mkt-card:hover::before { opacity: 0.9 !important; }
 /* Chamfer accent triangle */
 .mkt-card::after {
     content: '' !important;
