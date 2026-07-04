@@ -1769,3 +1769,42 @@ select:focus { border-bottom-color: var(--primary) !important; }
 .mkt-research-text ul, .mkt-research-text ol { padding-left:1.25rem; margin:0.4rem 0; }
 .mkt-research-text li { margin:0.25rem 0; }
 .mkt-research-text strong { color:var(--text); }
+
+/* ── Risk / return ratios panel ────────────────────────────────────────── */
+.mkt-ratios-panel {
+    background: rgba(10,11,26,0.6); border: 1px solid rgba(24,224,255,0.15);
+    padding: 0.75rem 0.9rem; margin: 0.6rem 0; border-radius: 0;
+    clip-path: polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%);
+}
+.mkt-verdict { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 0.7rem; }
+.mkt-verdict-label { font-family: var(--font-mono, monospace); font-size: 0.6rem; letter-spacing: 0.14em; color: var(--text-dim, #6e79a8); }
+.mkt-verdict-score { font-family: var(--font-mono, monospace); font-size: 1.15rem; font-weight: 700; color: var(--text, #ccd6f0); }
+.mkt-verdict-tag { font-family: var(--font-mono, monospace); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; padding: 2px 9px; border-radius: 2px; }
+.mkt-verdict-tag.buy  { color: #00ff9c; background: rgba(0,255,156,0.12); border: 1px solid rgba(0,255,156,0.4); }
+.mkt-verdict-tag.sell { color: #ff3b5c; background: rgba(255,59,92,0.12); border: 1px solid rgba(255,59,92,0.4); }
+.mkt-verdict-tag.hold { color: #fcee0a; background: rgba(252,238,10,0.10); border: 1px solid rgba(252,238,10,0.35); }
+.mkt-score-bar { flex: 1; min-width: 120px; height: 5px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; }
+.mkt-score-fill { height: 100%; width: 0; transition: width 0.5s cubic-bezier(0.19,1,0.22,1); }
+.mkt-ratios-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(78px, 1fr)); gap: 0.5rem; }
+.mkt-ratio-cell { display: flex; flex-direction: column; gap: 2px; padding: 0.4rem 0.5rem; background: rgba(255,255,255,0.02); border-left: 2px solid rgba(24,224,255,0.25); }
+.mkt-ratio-label { font-size: 0.58rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-dim, #6e79a8); font-family: var(--font-mono, monospace); }
+.mkt-ratio-val { font-size: 0.86rem; font-weight: 700; font-family: var(--font-mono, monospace); color: var(--text, #ccd6f0); }
+.mkt-ratio-val.pos { color: #00ff9c; }
+.mkt-ratio-val.neg { color: #ff3b5c; }
+
+/* ── Screener asset toggle + verdict badge ─────────────────────────────── */
+.mkt-screener-asset-toggle { display: inline-flex; gap: 2px; background: rgba(255,255,255,0.03); padding: 2px; margin-right: 0.5rem; }
+.mkt-screener-asset {
+    font-family: var(--font-mono, monospace); font-size: 0.68rem; letter-spacing: 0.05em;
+    border: none; background: transparent; color: var(--text-dim, #6e79a8);
+    padding: 0.3rem 0.7rem; cursor: pointer; border-radius: 0; transition: all 0.12s;
+}
+.mkt-screener-asset:hover { color: var(--text, #ccd6f0); }
+.mkt-screener-asset.active { background: var(--primary, #18e0ff); color: #001018; font-weight: 700; }
+.mkt-sc-verdict {
+    display: inline-block; font-family: var(--font-mono, monospace); font-size: 0.6rem;
+    font-weight: 700; letter-spacing: 0.06em; padding: 2px 6px; margin: 0.35rem 0; border-radius: 2px;
+}
+.mkt-sc-verdict.buy  { color: #00ff9c; background: rgba(0,255,156,0.12); border: 1px solid rgba(0,255,156,0.35); }
+.mkt-sc-verdict.sell { color: #ff3b5c; background: rgba(255,59,92,0.12); border: 1px solid rgba(255,59,92,0.35); }
+.mkt-sc-verdict.hold { color: #fcee0a; background: rgba(252,238,10,0.10); border: 1px solid rgba(252,238,10,0.30); }

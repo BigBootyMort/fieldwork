@@ -399,6 +399,91 @@ def _bollinger(closes: list, period: int = 20, std_dev: float = 2.0) -> dict:
     return {"upper": upper, "middle": middle, "lower": lower}
 
 
+# ── Risk / return ratios (from the daily close series) ─────────────────────────
+
+def _pct_return(closes: list, days: int) -> float | None:
+    """% change over the last `days` trading days."""
+    if len(closes) <= days or closes[-days - 1] == 0:
+        return None
+    return round((closes[-1] / closes[-days - 1] - 1) * 100, 2)
+
+
+def _daily_returns(closes: list) -> list:
+    out = []
+    for i in range(1, len(closes)):
+        if closes[i - 1]:
+            out.append(closes[i] / closes[i - 1] - 1)
+    return out
+
+
+def _annualized_vol(closes: list, window: int = 30) -> float | None:
+    """Annualised volatility (%) from the last `window` daily returns."""
+    rets = _daily_returns(closes)[-window:]
+    if len(rets) < 5:
+        return None
+    try:
+        sd = statistics.pstdev(rets)
+    except Exception:
+        return None
+    return round(sd * (252 ** 0.5) * 100, 2)
+
+
+def _max_drawdown(closes: list) -> float | None:
+    """Largest peak-to-trough decline (%) over the series."""
+    if len(closes) < 2:
+        return None
+    peak, mdd = closes[0], 0.0
+    for p in closes:
+        if p > peak:
+            peak = p
+        if peak:
+            mdd = min(mdd, p / peak - 1)
+    return round(mdd * 100, 2)
+
+
+def _sharpe(closes: list, rf_annual: float = 0.04) -> float | None:
+    """Annualised Sharpe ratio from daily returns (risk-free default 4%)."""
+    rets = _daily_returns(closes)
+    if len(rets) < 20:
+        return None
+    try:
+        mean, sd = statistics.mean(rets), statistics.pstdev(rets)
+    except Exception:
+        return None
+    if sd == 0:
+        return None
+    daily_rf = rf_annual / 252
+    return round((mean - daily_rf) / sd * (252 ** 0.5), 2)
+
+
+def _tech_score(rsi: float, macd_bull: bool, above20: bool, above50: bool,
+                above200: bool, ret_3m: float | None) -> tuple[int, str]:
+    """
+    Composite 0-100 technical bullishness score + verdict. Transparent weights:
+      trend (SMAs) 45 · momentum (MACD + 3m return) 30 · RSI positioning 25.
+    """
+    score = 0.0
+    score += 15 if above20 else 0
+    score += 15 if above50 else 0
+    score += 15 if above200 else 0
+    score += 18 if macd_bull else 0
+    if ret_3m is not None:
+        score += 12 if ret_3m > 0 else 0
+    # RSI: reward healthy 45-65 zone, penalise extremes lightly
+    if 45 <= rsi <= 65:
+        score += 25
+    elif 35 <= rsi < 45 or 65 < rsi <= 75:
+        score += 15
+    elif rsi < 30:
+        score += 8            # oversold — potential reversal, not confirmation
+    else:
+        score += 5
+    score = int(round(max(0, min(100, score))))
+    verdict = ("STRONG BUY" if score >= 78 else "BUY" if score >= 60 else
+               "HOLD" if score >= 42 else "SELL" if score >= 25 else "STRONG SELL")
+    return score, verdict
+
+
 async def _fetch_ohlcv(symbol: str, range_key: str = "3mo") -> dict:
     """Fetch full OHLCV from Yahoo chart endpoint.
 
@@ -474,6 +559,23 @@ def _compute_indicators(symbol: str, range_key: str, ohlcv: dict) -> dict:
             (bb_data["upper"][-1] - bb_data["lower"][-1]) / bb_data["middle"][-1] * 100, 2
         )
 
+    # ── Risk / return ratios ──────────────────────────────────────────────
+    ret_1m, ret_3m = _pct_return(closes, 21), _pct_return(closes, 63)
+    ret_6m, ret_1y = _pct_return(closes, 126), _pct_return(closes, 252)
+    vol30 = _annualized_vol(closes, 30)
+    mdd   = _max_drawdown(closes)
+    sharpe = _sharpe(closes)
+    hi52 = meta.get("fiftyTwoWeekHigh")
+    lo52 = meta.get("fiftyTwoWeekLow")
+    dist_high = round((current_price / hi52 - 1) * 100, 2) if hi52 else None
+    dist_low  = round((current_price / lo52 - 1) * 100, 2) if lo52 else None
+    score, verdict = _tech_score(
+        rsi_current, hist and hist[-1] > 0,
+        _sma_signal(sma20_series) == "ABOVE",
+        _sma_signal(sma50_series) == "ABOVE",
+        _sma_signal(sma200_series) == "ABOVE", ret_3m,
+    )
+
     return {
         "symbol":     symbol,
         "range":      range_key,
@@ -487,6 +589,13 @@ def _compute_indicators(symbol: str, range_key: str, ohlcv: dict) -> dict:
         "macd":    {"line": macd_data["line"], "signal_line": macd_data["signal"], "histogram": hist, "trend": macd_trend},
         "bb":      {"upper": bb_data["upper"], "middle": bb_data["middle"], "lower": bb_data["lower"], "width_pct": bb_width_pct},
         "volume_sma_20": {"series": [round(v, 2) for v in vol_sma20], "current": round(vol_sma20[-1], 2) if vol_sma20 else 0},
+        "ratios": {
+            "return_1m": ret_1m, "return_3m": ret_3m,
+            "return_6m": ret_6m, "return_1y": ret_1y,
+            "volatility_30d": vol30, "max_drawdown": mdd, "sharpe": sharpe,
+            "dist_52w_high": dist_high, "dist_52w_low": dist_low,
+            "tech_score": score, "verdict": verdict,
+        },
         "meta":    {"price": meta.get("regularMarketPrice", current_price), "week52_high": meta.get("fiftyTwoWeekHigh"), "week52_low": meta.get("fiftyTwoWeekLow")},
     }
 
@@ -499,9 +608,16 @@ _SCREENER_UNIVERSE = [
     "KO",   "PEP",  "COST", "WMT",   "BAC",  "DIS",  "NFLX", "AMD",   "INTC","PLTR",
 ]
 
+_CRYPTO_UNIVERSE = [
+    "BTC-USD", "ETH-USD", "SOL-USD", "XRP-USD", "BNB-USD", "ADA-USD",
+    "DOGE-USD", "AVAX-USD", "DOT-USD", "LINK-USD", "MATIC-USD", "LTC-USD",
+    "TRX-USD", "SHIB-USD", "UNI-USD", "ATOM-USD", "XLM-USD", "NEAR-USD",
+]
+
 _OVERVIEW_SYMBOLS = ["^GSPC", "^IXIC", "^DJI", "^VIX", "GC=F", "CL=F", "BTC-USD", "DX-Y.NYB"]
 
-_screener_cache: dict = {"data": None, "ts": 0}
+# Separate caches per asset class so stock/crypto results don't clobber each other
+_screener_cache: dict = {"stocks": {"data": None, "ts": 0}, "crypto": {"data": None, "ts": 0}}
 
 _SCREENER_RANGE_MAP = {"range": "7d", "interval": "1d"}
 
@@ -762,13 +878,24 @@ def build_router(deps: dict) -> APIRouter:
 
             rsi_ser  = _rsi(closes, 14)
             macd_d   = _macd(closes)
+            sma20    = _sma(closes, 20)
             sma50    = _sma(closes, 50)
+            sma200   = _sma(closes, 200)
 
             rsi_cur    = round(rsi_ser[-1], 2)
             hist       = macd_d["histogram"]
-            macd_trend = "BULLISH" if hist and hist[-1] > 0 else "BEARISH"
+            macd_bull  = bool(hist and hist[-1] > 0)
+            macd_trend = "BULLISH" if macd_bull else "BEARISH"
             sma50_sig  = "ABOVE" if sma50 and price > sma50[-1] else "BELOW"
             bullish_macd = len(hist) >= 2 and hist[-2] < 0 and hist[-1] > 0
+
+            ret_3m = _pct_return(closes, 63)
+            score, verdict = _tech_score(
+                rsi_cur, macd_bull,
+                bool(sma20 and price > sma20[-1]),
+                bool(sma50 and price > sma50[-1]),
+                bool(sma200 and price > sma200[-1]), ret_3m,
+            )
 
             if rsi_cur < 30:
                 signal = "oversold"
@@ -789,25 +916,37 @@ def build_router(deps: dict) -> APIRouter:
                 "macd_trend":  macd_trend,
                 "sma50_signal": sma50_sig,
                 "signal":      signal,
+                "return_3m":   ret_3m,
+                "tech_score":  score,
+                "verdict":     verdict,
             }
         except Exception as exc:
             log.debug("screen_one(%s): %s", sym, exc)
             return None
 
     @router.get("/screener")
-    async def screener(filter: str = Query("all")):
-        """Screen 30 liquid stocks for technical signals (cached 10 min)."""
+    async def screener(filter: str = Query("all"),
+                       asset: str = Query("stocks")):
+        """Screen liquid stocks or top crypto for technical signals (cached 10 min).
+
+        asset=stocks (30 large caps) | crypto (18 majors). Rows include a
+        composite tech_score + verdict; results sort best-score-first.
+        """
+        asset = "crypto" if asset == "crypto" else "stocks"
+        universe = _CRYPTO_UNIVERSE if asset == "crypto" else _SCREENER_UNIVERSE
+        cache = _screener_cache[asset]
         now = time.time()
-        if _screener_cache["data"] and (now - _screener_cache["ts"]) < 600:
-            results = _screener_cache["data"]
+        if cache["data"] and (now - cache["ts"]) < 600:
+            results = cache["data"]
         else:
-            raw = await asyncio.gather(*[_screen_one(s) for s in _SCREENER_UNIVERSE])
+            raw = await asyncio.gather(*[_screen_one(s) for s in universe])
             results = [r for r in raw if r is not None]
-            _screener_cache["data"] = results
-            _screener_cache["ts"]   = now
+            results.sort(key=lambda r: r.get("tech_score", 0), reverse=True)
+            cache["data"] = results
+            cache["ts"]   = now
 
         filtered = results if filter == "all" else [r for r in results if r["signal"] == filter]
-        return {"results": filtered, "screened": len(results), "filter": filter}
+        return {"results": filtered, "screened": len(results), "filter": filter, "asset": asset}
 
     # ── GET /api/markets/overview ────────────────────────────────────────────
     @router.get("/overview")

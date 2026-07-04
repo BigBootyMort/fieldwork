@@ -149,6 +149,15 @@
         <div class="mkt-indicator-chip" id="mkt-ind-sma200"></div>
         <div class="mkt-indicator-chip" id="mkt-ind-bb"></div>
       </div>
+      <div id="mkt-ratios-panel" class="mkt-ratios-panel" style="display:none">
+        <div class="mkt-verdict" id="mkt-verdict">
+          <span class="mkt-verdict-label">TECHNICAL SCORE</span>
+          <span class="mkt-verdict-score" id="mkt-verdict-score">—</span>
+          <span class="mkt-verdict-tag" id="mkt-verdict-tag">—</span>
+          <div class="mkt-score-bar"><div class="mkt-score-fill" id="mkt-score-fill"></div></div>
+        </div>
+        <div class="mkt-ratios-grid" id="mkt-ratios-grid"></div>
+      </div>
       <div id="mkt-analysis-chart-wrap" class="mkt-analysis-chart-wrap" style="display:none">
         <canvas id="mkt-analysis-canvas" class="mkt-analysis-canvas" height="180"></canvas>
       </div>
@@ -172,6 +181,10 @@
     <!-- ── Screener pane ──────────────────────────────────────────────────── -->
     <div id="markets-screener-pane" class="mkt-pane" style="display:none">
       <div class="mkt-screener-toolbar">
+        <div class="mkt-screener-asset-toggle">
+          <button class="mkt-screener-asset active" data-asset="stocks">📈 Stocks</button>
+          <button class="mkt-screener-asset" data-asset="crypto">🪙 Crypto</button>
+        </div>
         <div class="mkt-filter-pills">
           <button class="mkt-filter-pill active" data-filter="all">All</button>
           <button class="mkt-filter-pill" data-filter="oversold">🟢 Oversold</button>

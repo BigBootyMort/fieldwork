@@ -1753,6 +1753,8 @@ async function _runAnalysis() {
 
   if (loading)   loading.style.display   = 'flex';
   if (empty)     empty.style.display     = 'none';
+  const ratiosPanel = document.getElementById('mkt-ratios-panel');
+  if (ratiosPanel) ratiosPanel.style.display = 'none';
   if (indRow)    indRow.style.display    = 'none';
   if (aiOutput)  aiOutput.style.display  = 'none';
   if (chartWrap) chartWrap.style.display = 'none';
@@ -1773,6 +1775,7 @@ async function _runAnalysis() {
     const ind = await indResp.json();
 
     _renderIndicatorChips(ind);
+    _renderRatios(ind.ratios);
     _drawAnalysisChart(ind);
     if (chartWrap) chartWrap.style.display = 'block';
     if (indRow)    indRow.style.display    = 'flex';
@@ -1817,6 +1820,51 @@ function _renderIndicatorChips(ind) {
     const kw = Object.keys(classMap).find(k => text.includes(k)) || '';
     el.className = 'mkt-indicator-chip ' + (classMap[kw] || 'neutral');
   });
+}
+
+function _renderRatios(r) {
+  const panel = document.getElementById('mkt-ratios-panel');
+  if (!panel || !r) { if (panel) panel.style.display = 'none'; return; }
+  panel.style.display = 'block';
+
+  const score = r.tech_score ?? 0;
+  const tag   = r.verdict || '—';
+  const sEl = document.getElementById('mkt-verdict-score');
+  const tEl = document.getElementById('mkt-verdict-tag');
+  const fEl = document.getElementById('mkt-score-fill');
+  if (sEl) sEl.textContent = `${score}/100`;
+  if (tEl) { tEl.textContent = tag; tEl.className = 'mkt-verdict-tag ' + _verdictClass(tag); }
+  if (fEl) {
+    fEl.style.width = `${score}%`;
+    fEl.style.background = score >= 60 ? 'var(--mkt-up, #22c55e)'
+                        : score >= 42 ? 'var(--warning, #fcee0a)' : 'var(--danger, #ff3b5c)';
+  }
+
+  const pct = (v) => v == null ? '—' : `${v > 0 ? '+' : ''}${v.toFixed(1)}%`;
+  const num = (v, s = '') => v == null ? '—' : `${v.toFixed(2)}${s}`;
+  const signed = (v) => v == null ? 'neutral' : v > 0 ? 'pos' : 'neg';
+
+  const cells = [
+    ['1M',        pct(r.return_1m),   signed(r.return_1m)],
+    ['3M',        pct(r.return_3m),   signed(r.return_3m)],
+    ['6M',        pct(r.return_6m),   signed(r.return_6m)],
+    ['1Y',        pct(r.return_1y),   signed(r.return_1y)],
+    ['Volatility',num(r.volatility_30d, '%'), 'neutral'],
+    ['Sharpe',    num(r.sharpe),      signed(r.sharpe)],
+    ['Max DD',    pct(r.max_drawdown),'neg'],
+    ['vs 52w Hi', pct(r.dist_52w_high), signed(r.dist_52w_high)],
+    ['vs 52w Lo', pct(r.dist_52w_low),  signed(r.dist_52w_low)],
+  ];
+  const grid = document.getElementById('mkt-ratios-grid');
+  if (grid) grid.innerHTML = cells.map(([label, val, cls]) =>
+    `<div class="mkt-ratio-cell"><span class="mkt-ratio-label">${label}</span>` +
+    `<span class="mkt-ratio-val ${cls}">${val}</span></div>`).join('');
+}
+
+function _verdictClass(v) {
+  if (/STRONG BUY|^BUY/.test(v)) return 'buy';
+  if (/STRONG SELL|^SELL/.test(v)) return 'sell';
+  return 'hold';
 }
 
 function _drawAnalysisChart(ind) {
@@ -1880,6 +1928,7 @@ function _renderAIOutput(symbol, ai) {
 
 let _screenerFilter = 'all';
 let _screenerData   = null;
+let _screenerAsset  = 'stocks';
 
 function _initScreenerTab() {
   document.querySelectorAll('.mkt-filter-pill').forEach(pill => {
@@ -1893,6 +1942,20 @@ function _initScreenerTab() {
       else _loadScreener();
     });
   });
+  // Asset class toggle (stocks / crypto)
+  document.querySelectorAll('.mkt-screener-asset').forEach(btn => {
+    if (btn._mktWired) return;
+    btn._mktWired = true;
+    btn.addEventListener('click', () => {
+      const a = btn.dataset.asset || 'stocks';
+      if (a === _screenerAsset) return;
+      _screenerAsset = a;
+      document.querySelectorAll('.mkt-screener-asset').forEach(b =>
+        b.classList.toggle('active', b.dataset.asset === a));
+      _screenerData = null;
+      _loadScreener();
+    });
+  });
   const refreshBtn = document.getElementById('mkt-screener-refresh');
   if (refreshBtn && !refreshBtn._mktWired) {
     refreshBtn._mktWired = true;
@@ -1903,13 +1966,14 @@ function _initScreenerTab() {
 async function _loadScreener() {
   const grid   = document.getElementById('mkt-screener-grid');
   const status = document.getElementById('mkt-screener-status');
-  if (grid) grid.innerHTML = '<div class="mkt-screener-loading">Scanning 30 stocks… (10-20 seconds)</div>';
+  const label  = _screenerAsset === 'crypto' ? 'crypto assets' : 'stocks';
+  if (grid) grid.innerHTML = `<div class="mkt-screener-loading">Scanning ${label}… (10-20 seconds)</div>`;
   try {
-    const r = await fetch(`${BACKEND}/screener`);
+    const r = await fetch(`${BACKEND}/screener?asset=${_screenerAsset}`);
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const data = await r.json();
     _screenerData = data.results || [];
-    if (status) status.textContent = `Screened ${data.screened || _screenerData.length} stocks · Last updated ${new Date().toLocaleTimeString()}`;
+    if (status) status.textContent = `Screened ${data.screened || _screenerData.length} ${label} · sorted by score · ${new Date().toLocaleTimeString()}`;
     _renderScreener(_screenerData);
   } catch (e) {
     if (grid) grid.innerHTML = `<div class="mkt-screener-loading">Error: ${e.message}</div>`;
@@ -1922,24 +1986,32 @@ function _renderScreener(results) {
   let filtered = results;
   if (_screenerFilter !== 'all') filtered = results.filter(r => r.signal === _screenerFilter);
   if (!filtered.length) {
-    grid.innerHTML = `<div class="mkt-screener-loading">No stocks match the "${_screenerFilter}" filter.</div>`;
+    grid.innerHTML = `<div class="mkt-screener-loading">No results match the "${_screenerFilter}" filter.</div>`;
     return;
   }
   grid.innerHTML = filtered.map(r => {
     const pct = r.change_pct?.toFixed(2) ?? '0.00';
     const pos = parseFloat(pct) >= 0;
     const signalClass = r.signal ? `signal-${r.signal}` : '';
+    const vcls = _verdictClass(r.verdict || '');
+    const score = r.tech_score ?? null;
+    const verdictBadge = r.verdict
+      ? `<span class="mkt-sc-verdict ${vcls}">${score != null ? score : ''} ${r.verdict}</span>` : '';
     const chips = [
       r.rsi       ? `<span class="mkt-screener-chip mkt-sc-rsi">RSI ${r.rsi.toFixed(0)}</span>` : '',
       r.macd_trend? `<span class="mkt-screener-chip mkt-sc-macd">${r.macd_trend}</span>` : '',
       r.sma50_signal ? `<span class="mkt-screener-chip mkt-sc-sma">SMA50 ${r.sma50_signal}</span>` : '',
     ].join('');
+    // Display crypto tickers without the -USD suffix for readability
+    const disp = r.symbol.replace(/-USD$/i, '');
+    const priceStr = r.price != null ? (r.price >= 1 ? r.price.toFixed(2) : r.price.toFixed(4)) : '—';
     return `<div class="mkt-screener-card ${signalClass}" onclick="_mktGoAnalyse('${r.symbol}')">
       <div class="mkt-screener-card-header">
-        <span class="mkt-screener-symbol">${r.symbol}</span>
+        <span class="mkt-screener-symbol">${disp}</span>
         <span class="mkt-screener-change ${pos ? 'pos' : 'neg'}">${pos ? '+' : ''}${pct}%</span>
       </div>
-      <div class="mkt-screener-price">$${r.price?.toFixed(2) ?? '—'}</div>
+      <div class="mkt-screener-price">$${priceStr}</div>
+      ${verdictBadge}
       <div class="mkt-screener-chips">${chips}</div>
     </div>`;
   }).join('');
