@@ -9,6 +9,7 @@ backend/app/key_verifications.json
 backend/app/inv_monitors.json
 shell/backend/app/modules/agent/agent_config.json
 shell/backend/app/modules/news/watchlist.json
+shell/backend/app/modules/news/bias_ai_cache.json
 
 # ── Python ────────────────────────────────────────────────────────
 __pycache__/

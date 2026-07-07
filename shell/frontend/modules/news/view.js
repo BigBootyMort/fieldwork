@@ -334,6 +334,49 @@ window.NewsView = (function () {
         }
     }
 
+    // Media-lean badge (colour-coded), with factual + ownership tooltip.
+    function _leanClass(lean) {
+        const l = (lean || '').toLowerCase();
+        if (l.includes('far right')) return 'far-right';
+        if (l.includes('right'))     return 'right';
+        if (l.includes('far left'))  return 'far-left';
+        if (l.includes('left'))      return 'left';
+        if (l.includes('center'))    return 'center';
+        return 'na';
+    }
+    function _biasBadge(b) {
+        if (!b || b.lean === 'Unrated' || b.lean === 'N/A') return '';
+        const state = /state|⚑/i.test(b.owner || '');
+        const ai    = !!b.ai_estimated;
+        const cls   = _leanClass(b.lean);
+        const tip   = `${b.lean} · Factual: ${b.factual}\nOwner: ${(b.owner || '').replace(/⚑\s*/, '')}`
+                    + (ai ? '\n(AI-estimated — not a curated rating)' : '');
+        return `<span class="news-lean news-lean--${cls}${ai ? ' news-lean--ai' : ''}" title="${escapeHtml(tip)}">`
+             + `${state ? '⚑ ' : ''}${escapeHtml(b.lean)}${ai ? ' ~' : ''}</span>`;
+    }
+
+    // Coverage-balance bar for a story cluster — political spread of outlets.
+    function _coverageBar(cov) {
+        if (!cov) return '';
+        const b = cov.buckets || {};
+        const total = (b.left || 0) + (b.center || 0) + (b.right || 0);
+        if (total < 2) return '';   // only meaningful for multi-source stories
+        const pctL = (b.left   / total * 100).toFixed(0);
+        const pctC = (b.center / total * 100).toFixed(0);
+        const pctR = (b.right  / total * 100).toFixed(0);
+        const flag = cov.state_funded_present
+            ? '<span class="news-cov-state" title="A state-funded / government-influenced outlet is among the sources">⚑ state media</span>'
+            : '';
+        return `<div class="news-coverage" title="${b.left||0} left · ${b.center||0} center · ${b.right||0} right">
+            <div class="news-cov-bar">
+                <span style="width:${pctL}%" class="news-cov-l"></span>
+                <span style="width:${pctC}%" class="news-cov-c"></span>
+                <span style="width:${pctR}%" class="news-cov-r"></span>
+            </div>
+            <span class="news-cov-label">${escapeHtml(cov.label || '')}</span>${flag}
+        </div>`;
+    }
+
     // Entity chips → click to investigate / watch
     function _entityChips(entities) {
         if (!entities || !entities.length) return '';
@@ -384,7 +427,8 @@ window.NewsView = (function () {
                     <a href="${escapeHtml(a.url)}" target="_blank" rel="noopener">${escapeHtml(a.title)}</a>
                 </div>
                 <div class="news-article-meta">
-                    <span>${escapeHtml(a.source?.name || 'unknown')}</span>
+                    <span>${escapeHtml(a.bias?.outlet || a.source?.name || 'unknown')}</span>
+                    ${_biasBadge(a.bias)}
                     <span>·</span>
                     <span>${time}</span>
                     ${a.topic ? `<span class="news-topic-chip ${topicCls}">${escapeHtml(a.topic)}</span>` : ''}
@@ -852,16 +896,18 @@ window.NewsView = (function () {
                 ? `<span class="news-corrob" title="${escapeHtml(s.sources.join(', '))}">✓ ${s.size} sources</span>`
                 : `<span class="news-corrob news-corrob--single">1 source</span>`;
             const others = (s.members || []).slice(1, 5).map(m =>
-                `<a href="${escapeHtml(m.url)}" target="_blank" rel="noopener" class="news-story-alt">${escapeHtml(m.source?.name || '?')}</a>`).join('');
+                `<a href="${escapeHtml(m.url)}" target="_blank" rel="noopener" class="news-story-alt">${escapeHtml(m.bias?.outlet || m.source?.name || '?')}</a>`).join('');
             return `<article class="news-article" style="border-left:3px solid ${border}">
                 <div class="news-article-title">
                     <a href="${escapeHtml(a.url)}" target="_blank" rel="noopener">${escapeHtml(a.title)}</a>
                 </div>
                 <div class="news-article-meta">
-                    <span>${escapeHtml(a.source?.name || '?')}</span><span>·</span>
+                    <span>${escapeHtml(a.bias?.outlet || a.source?.name || '?')}</span>
+                    ${_biasBadge(a.bias)}<span>·</span>
                     <span>${formatRelative(a.published_at)}</span>
                     ${corr}
                 </div>
+                ${_coverageBar(s.coverage)}
                 ${others ? `<div class="news-story-alts">also: ${others}</div>` : ''}
                 ${_entityChips(a.entities)}
             </article>`;

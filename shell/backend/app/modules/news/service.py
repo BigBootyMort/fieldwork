@@ -43,6 +43,11 @@ from .intel    import (
     extract_entities, match_watchlist, cluster_articles, embed_text,
     classify_topics, get_last_brief_at, set_last_brief_at,
 )
+from .bias     import (
+    bias_for, coverage_balance, outlet_of, is_rated,
+    build_estimation_prompt, parse_estimation, record_ai_estimates,
+    ESTIMATE_SYSTEM,
+)
 
 log = logging.getLogger("news.service")
 
@@ -283,6 +288,7 @@ class NewsService:
                         "id": _article_id(it["url"][:600]),
                         "title": it["title"][:400],
                         "summary": (it.get("summary") or "")[:1200],
+                        "source": src.name,
                     })
             per_source[src.id] = new_count
             total_new += new_count
@@ -291,6 +297,7 @@ class NewsService:
         # embedding on the node so story clustering reuses it (no lazy embed).
         if new_articles:
             await self._enrich_topics(new_articles)
+            await self._estimate_source_bias(new_articles)
 
         # Invalidate caches so the next /heatmap reflects new data
         self._heatmap_cache.clear()
@@ -339,6 +346,42 @@ class NewsService:
             log.info("news topic-enrich: embedded %d, reclassified %d", len(results), updated)
         except Exception as exc:
             log.warning("news topic-enrich failed: %s", exc)
+
+    async def _estimate_source_bias(self, new_articles: list[dict]) -> None:
+        """
+        For outlets missing from the curated bias list (e.g. ones surfaced via
+        Google News), ask the LLM for a NEUTRAL lean estimate and cache it.
+        Best-effort; opt out with NEWS_AI_BIAS=0. Bounded to keep cost low.
+        """
+        import os
+        if os.getenv("NEWS_AI_BIAS", "1").lower() in ("0", "false", "off", "no"):
+            return
+        try:
+            seen, todo = set(), []
+            for a in new_articles:
+                outlet = outlet_of(a.get("source", ""), a.get("title", ""))
+                key = outlet.lower().strip()
+                if not outlet or len(outlet) < 3 or key in seen:
+                    continue
+                if is_rated(a.get("source", ""), a.get("title", "")):
+                    continue
+                seen.add(key)
+                todo.append(outlet)
+            todo = todo[:12]        # bound the batch
+            if not todo:
+                return
+            text, engine = await self._chat(
+                system=ESTIMATE_SYSTEM,
+                user=build_estimation_prompt(todo),
+                temperature=0.0, max_tokens=900,
+            )
+            estimates = parse_estimation(text)
+            if estimates:
+                record_ai_estimates(estimates)
+                log.info("news bias: AI-estimated lean for %d outlet(s) via %s",
+                         len(estimates), engine)
+        except Exception as exc:
+            log.warning("news bias estimation failed: %s", exc)
 
     async def _persist_article(self, src: NewsSource, it: dict) -> bool:
         """Insert one article. Returns True if it was new.
@@ -533,6 +576,7 @@ class NewsService:
                 },
                 "countries":    list(rec["countries"] or []),
                 "entities":     extract_entities(rec["title"], rec["summary"] or ""),
+                "bias":         bias_for(rec["source_name"], rec["title"]),
             }
             for rec in records
         ]
@@ -607,7 +651,13 @@ class NewsService:
             a["embedding"] = stored.get(a["id"], [])
 
         clusters = cluster_articles(arts)
-        # Strip embeddings from the payload
+        # Annotate each story with its coverage balance (political spread of
+        # the outlets reporting it) and strip embeddings from the payload.
+        for c in clusters:
+            members = c.get("members", [])
+            src_names = [(m.get("source") or {}).get("name", "") for m in members]
+            titles    = [m.get("title", "") for m in members]
+            c["coverage"] = coverage_balance(src_names, titles)
         for a in arts:
             a.pop("embedding", None)
         return clusters

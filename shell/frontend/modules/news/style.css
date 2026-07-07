@@ -701,3 +701,33 @@
 .news-retro-src { font-size: 0.78rem; padding: 0.2rem 0; border-bottom: 1px solid var(--border, #1b2348); }
 .news-retro-src a { color: var(--primary, #18e0ff); text-decoration: none; }
 .news-retro-src a:hover { text-decoration: underline; }
+
+/* ── Media lean badges + coverage balance ──────────────────────────────── */
+.news-lean {
+    font-size: 0.6rem; font-weight: 700; letter-spacing: 0.03em;
+    padding: 0px 5px; border-radius: 8px; margin-left: 2px;
+    border: 1px solid transparent; white-space: nowrap; cursor: help;
+}
+.news-lean--left      { color: #4aa3ff; background: rgba(74,163,255,0.12);  border-color: rgba(74,163,255,0.4); }
+.news-lean--far-left  { color: #2f6bff; background: rgba(47,107,255,0.16);  border-color: rgba(47,107,255,0.5); }
+.news-lean--center    { color: #b7c0da; background: rgba(183,192,218,0.10); border-color: rgba(183,192,218,0.3); }
+.news-lean--right     { color: #ff6b6b; background: rgba(255,107,107,0.12); border-color: rgba(255,107,107,0.4); }
+.news-lean--far-right { color: #ff3b5c; background: rgba(255,59,92,0.16);   border-color: rgba(255,59,92,0.5); }
+.news-lean--na        { display: none; }
+
+.news-coverage { display: flex; align-items: center; gap: 0.4rem; margin: 0.35rem 0 0.1rem; }
+.news-cov-bar { display: flex; height: 4px; width: 90px; border-radius: 2px; overflow: hidden; background: rgba(255,255,255,0.06); }
+.news-cov-bar span { display: block; height: 100%; }
+.news-cov-l { background: #4aa3ff; }
+.news-cov-c { background: #b7c0da; }
+.news-cov-r { background: #ff6b6b; }
+.news-cov-label { font-size: 0.64rem; color: var(--text-dim, #6e79a8); font-style: italic; }
+.news-cov-state {
+    font-size: 0.6rem; font-weight: 700; color: #fcee0a;
+    background: rgba(252,238,10,0.10); border: 1px solid rgba(252,238,10,0.35);
+    padding: 0 5px; border-radius: 8px; cursor: help;
+}
+
+/* AI-estimated lean — dashed border + "~" marker so it's visibly distinct
+   from the curated consensus ratings. */
+.news-lean--ai { border-style: dashed !important; opacity: 0.9; }
