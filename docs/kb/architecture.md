@@ -51,8 +51,9 @@ Key `Settings` env vars: `NEO4J_URI/USER/PASSWORD`, `FIELDWORK_API` (http://back
   module manifest.
 - `shell.js` — `Shell` global: module registry/`register()`, view switching,
   event bus (`Shell.emit`), `Shell.api()`, toasts, palette.
-- `nginx.conf` — serves SPA, proxies each `/api/<module>/` prefix to shell-backend:8002.
-  **Every new module needs a proxy rule here.**
+- `nginx.conf` — serves SPA and proxies **all** `/api/` to shell-backend:8002 via one
+  catch-all `location /api/` (300s timeouts for slow LLM calls). Adding a module needs **no**
+  nginx change — a newly registered `/api/<id>/` route is reachable immediately.
 - `modules/<id>/` — `manifest.js` (registers with Shell), `view.html`, `view.js`, `style.css`.
 
 ## Data model (Neo4j, single instance shared by everything)

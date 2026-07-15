@@ -83,8 +83,14 @@ nodes. Endpoints: `GET /list`, `GET /generate`, `GET /{report_id}`, `DELETE /{re
 
 1. `shell/backend/app/modules/<id>/__init__.py` with `ModuleManifest` + `init()`.
 2. Register manifest in `shell/backend/app/main.py`.
-3. nginx proxy rule for `/api/<id>/` in `shell/frontend/nginx.conf`.
-4. `shell/frontend/modules/<id>/manifest.js` calling `Shell.register({...})` + view files.
-5. `<script>` tag in `shell/frontend/index.html`.
-6. `docker compose up -d --build shell-backend shell-frontend`.
-7. **Update this file.**
+3. `shell/frontend/modules/<id>/manifest.js` calling `Shell.register({...})` + view files.
+4. `<script>` tag in `shell/frontend/index.html`.
+5. `docker compose up -d --build shell-backend shell-frontend` **only if deps/image
+   changed** — `shell/backend/app` and `shell/frontend` are volume-mounted, so ordinary
+   code edits are live (uvicorn reload / hard refresh).
+6. **Update this file.**
+
+No nginx change is needed: `shell/frontend/nginx.conf` proxies **all** `/api/` to the
+backend with one catch-all `location /api/`, so any `/api/<id>/` route is reachable the
+moment it's registered. (This step used to require a per-module proxy rule; it no longer
+does.)

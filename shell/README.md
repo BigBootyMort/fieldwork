@@ -127,13 +127,9 @@ Then open:
    registry.register(news_manifest)
    ```
 
-3. Add an nginx proxy rule in `shell/frontend/nginx.conf`:
-
-   ```nginx
-   location /api/news/ {
-       proxy_pass http://shell-backend:8002;
-   }
-   ```
+3. nginx: nothing to do. `shell/frontend/nginx.conf` has a single catch-all
+   `location /api/` that proxies every `/api/*` call to the backend, so a newly registered
+   `/api/<id>/` route is reachable immediately — no per-module proxy rule.
 
 4. Create the frontend manifest:
 
