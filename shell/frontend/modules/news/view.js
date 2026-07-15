@@ -62,7 +62,7 @@ window.NewsView = (function () {
         if (window.L && window.L.geoJSON) { state.leafletReady = true; return; }
         await new Promise((resolve, reject) => {
             const s = document.createElement('script');
-            s.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+            s.src = '/modules/news/vendor/leaflet/leaflet.js';
             s.crossOrigin = '';
             s.onload  = resolve;
             s.onerror = reject;
@@ -74,8 +74,9 @@ window.NewsView = (function () {
     // Cached world GeoJSON (Natural Earth low-res, fetched once per session)
     async function ensureWorldGeo() {
         if (state.worldGeo) return state.worldGeo;
-        // Stable mirror; ~150 KB of country polygons with ISO_A2 in properties
-        const url = 'https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson';
+        // Vendored locally (Highcharts world.geo.json, ~190 KB, iso-a2 per feature)
+        // so the map works offline and makes no external requests — see vendor/.
+        const url = '/modules/news/vendor/world.geo.json';
         const res = await fetch(url);
         if (!res.ok) throw new Error('Failed to load world GeoJSON');
         state.worldGeo = await res.json();
@@ -126,11 +127,9 @@ window.NewsView = (function () {
             zoomControl: true,
             attributionControl: false,
         });
-        // Subtle dark base
-        L.tileLayer(
-            'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}.png',
-            { subdomains: 'abcd', maxZoom: 6 }
-        ).addTo(state.map);
+        // No external tile basemap — the choropleth polygons are the data and
+        // render on the dark map background (#news-map bg in style.css). This
+        // keeps the map fully offline / zero external requests for OPSEC.
 
         // ── Tooltip stuck-open fix ──────────────────────────────────────
         // Leaflet's layer-level mouseout doesn't always fire when the cursor
@@ -167,6 +166,8 @@ window.NewsView = (function () {
             || props.ISO_A2_EH              // Natural Earth extended
             || props.ISO2
             || props.iso2
+            || props['iso-a2']              // Highcharts world.geo.json (vendored)
+            || props['hc-a2']
             || null;
     }
 
