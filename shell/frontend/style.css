@@ -550,7 +550,10 @@ body::after {
 input, select, textarea {
     font-family: 'JetBrains Mono', 'Courier New', monospace;
     letter-spacing: 0.03em;
+    color-scheme: dark;   /* keep native <select> dropdown popups dark, not light-gray-on-white */
 }
+/* Native <option> popups render with OS colors unless told otherwise */
+select option { background: var(--surface); color: var(--text); }
 input:focus, select:focus, textarea:focus {
     box-shadow: 0 0 8px rgba(0,212,255,0.2);
 }
