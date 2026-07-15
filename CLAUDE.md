@@ -45,6 +45,9 @@ sections over appending duplicates.
   needs no change — `shell/frontend/nginx.conf` has a catch-all `/api/` proxy. The
   `.claude/skills/runi-shell-module` skill has the full code-level walkthrough.
 - Rebuild after changes: `docker compose up -d --build shell-backend shell-frontend`.
+- Tests: `tests/` is a live-stack pytest smoke suite (needs the stack up). `pytest` for the
+  fast set, `pytest -m slow` for the end-to-end AI paths. Add an assertion when you add an
+  endpoint/module. There are no unit tests.
 - Neo4j is the single shared datastore (Fieldwork graph + news/report/audit nodes).
 - `neo4j/init.cypher` must stay **LF**; repo uses `core.autocrlf input`.
 - Backend module files are UTF-8; edit with UTF-8 tools (PowerShell 5.1 defaults to

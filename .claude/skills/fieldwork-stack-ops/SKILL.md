@@ -103,8 +103,8 @@ never delete — they're un-deletable), then relaunch.
 
 ## Verifying a change actually works
 
-There's **no automated test suite** in this repo, so verification is by driving the stack:
-`curl` a backend route (`/docs` lists them), hit the module list at
-`/api/shell/modules`, or open the UI and exercise the flow (the `run` / `verify` skills).
-Don't trust a diff alone — a mounted edit that wasn't restarted is the most common "why
+Run the `tests/` smoke suite (`pytest`) against the running stack as a first regression
+net, then drive the specific path: `curl` a backend route (`/docs` lists them), hit the
+module list at `/api/shell/modules`, or open the UI and exercise the flow (the `run` /
+`verify` skills). Don't trust a diff alone — a mounted edit that wasn't restarted is the most common "why
 didn't my change work" cause.

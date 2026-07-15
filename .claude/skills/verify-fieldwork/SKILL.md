@@ -1,9 +1,9 @@
 ---
 name: verify-fieldwork
 description: >-
-  Smoke-test playbook for the Fieldwork platform — how to prove a change actually works
-  when there is NO automated test suite in this repo. Use this skill after editing any
-  backend route, crawler, shell module, frontend view, the graph layer, or the AI
+  How to prove a Fieldwork change actually works — run the `tests/` pytest smoke suite as a
+  regression net, then drive the specific subsystem you changed. Use this skill after editing
+  any backend route, crawler, shell module, frontend view, the graph layer, or the AI
   investigation engine, and before declaring a change done. Also use it to sanity-check the
   whole stack is healthy ("is everything working?", "did my change break anything?"). It
   gives the exact curl checks and UI flows per subsystem (shell, legacy backend, news,
@@ -15,10 +15,23 @@ description: >-
 
 # Verifying Fieldwork changes
 
-**There is no pytest/jest suite in this repo** — verification means driving the running
-stack and observing real behavior. A green diff proves nothing here; the single most common
-"why didn't my change work" is a shell-backend edit that wasn't restarted (see
-`fieldwork-stack-ops` for the reload matrix). Always exercise the actual path you changed.
+**Start with the smoke suite, then drive the specific path you changed.** A green diff
+proves nothing here; the single most common "why didn't my change work" is a shell-backend
+edit that wasn't restarted (see `fieldwork-stack-ops` for the reload matrix).
+
+`tests/` holds a live-stack pytest smoke suite (the repo's only automated tests) — run it
+first as a fast regression net:
+
+```bash
+python -m pip install -r tests/requirements-dev.txt   # once
+pytest              # fast smoke: reachability, module registry, type detection,
+                    # graceful degradation, endpoint shapes (~15s)
+pytest -m slow      # end-to-end AI: news brief + orchestrated investigation
+```
+
+It skips cleanly if the stack is down. It's intentionally shallow (shapes, not values), so
+it won't catch everything — **still exercise the actual path you changed** with the targeted
+checks below. If you added an endpoint/module, add a matching assertion to `tests/`.
 
 Ports: shell **3001** (main UI), shell-backend **8002**, legacy frontend 3000, legacy
 backend **8000**, neo4j 7474/7687. Everything binds `127.0.0.1`.
