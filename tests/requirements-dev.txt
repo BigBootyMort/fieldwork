@@ -1,0 +1,4 @@
+# Test-only dependencies for the smoke suite (run on the host, not in a container).
+# Install:  python -m pip install -r tests/requirements-dev.txt
+pytest>=8.0
+httpx>=0.27
