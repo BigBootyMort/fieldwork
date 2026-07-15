@@ -1,0 +1,7 @@
+/* Vendored locally from Fontsource (JetBrains Mono, Share Tech Mono) so the UI
+   makes no request to Google Fonts — OPSEC + works offline. Latin subset only. */
+@font-face{font-family:'JetBrains Mono';font-style:normal;font-weight:300;font-display:swap;src:url(jetbrains-mono-300.woff2) format('woff2');}
+@font-face{font-family:'JetBrains Mono';font-style:normal;font-weight:400;font-display:swap;src:url(jetbrains-mono-400.woff2) format('woff2');}
+@font-face{font-family:'JetBrains Mono';font-style:normal;font-weight:600;font-display:swap;src:url(jetbrains-mono-600.woff2) format('woff2');}
+@font-face{font-family:'JetBrains Mono';font-style:normal;font-weight:700;font-display:swap;src:url(jetbrains-mono-700.woff2) format('woff2');}
+@font-face{font-family:'Share Tech Mono';font-style:normal;font-weight:400;font-display:swap;src:url(share-tech-mono-400.woff2) format('woff2');}
