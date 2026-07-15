@@ -230,7 +230,10 @@
             color: var(--text);
             font-size: 0.9rem;
             transition: border-color 0.2s;
+            color-scheme: dark;
         }
+        /* Keep native <select> dropdown popups dark instead of light-gray-on-white */
+        select option { background: var(--surface); color: var(--text); }
         input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary); }
 
         /* File upload */
@@ -4657,20 +4660,12 @@
                 </button>
               </div>
               <div id="smart-type-hint" style="margin-top:0.6rem;font-size:0.78rem;color:var(--text-dim);min-height:1.2em"></div>
-              <!-- Quick example chips -->
-              <div style="margin-top:1rem;display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center">
-                <span style="font-size:0.75rem;color:var(--text-dim)">Try:</span>
-                <button class="tag" style="cursor:pointer;border-color:var(--border)" onclick="setSmartLookup('Elon Musk')">Elon Musk</button>
-                <button class="tag" style="cursor:pointer;border-color:var(--border)" onclick="setSmartLookup('8.8.8.8')">8.8.8.8</button>
-                <button class="tag" style="cursor:pointer;border-color:var(--border)" onclick="setSmartLookup('tesla.com')">tesla.com</button>
-                <button class="tag" style="cursor:pointer;border-color:var(--border)" onclick="setSmartLookup('@elonmusk')">@elonmusk</button>
-              </div>
             </div>
             <div class="card">
                 <div class="card-title"><span class="icon">🎯</span> Identify from a fragment</div>
                 <div class="input-group">
                     <label>Fragment type</label>
-                    <select id="fragment-type">
+                    <select id="fragment-type" onchange="updateFragmentPlaceholder()">
                         <option value="email">Email address</option>
                         <option value="phone">Phone number</option>
                         <option value="username">Username → switch to Tools for Maigret scan</option>
@@ -8041,6 +8036,19 @@ async function smartLookup() {
 }
 
 // ── IDENTIFY ─────────────────────────────────────────────────────
+const FRAGMENT_PLACEHOLDERS = {
+    email:    'e.g., jane.doe@example.com',
+    phone:    'e.g., +1 415 555 0132',
+    username: 'e.g., janedoe',
+    ip:       'e.g., 8.8.8.8',
+    domain:   'e.g., example.com',
+};
+function updateFragmentPlaceholder() {
+    const type = document.getElementById('fragment-type')?.value;
+    const input = document.getElementById('fragment-value');
+    if (input && FRAGMENT_PLACEHOLDERS[type]) input.placeholder = FRAGMENT_PLACEHOLDERS[type];
+}
+
 async function identify() {
     const value = document.getElementById('fragment-value').value.trim();
     if (!value) { alert('Enter a value'); return; }
