@@ -18,6 +18,10 @@ from pathlib import Path
 
 import httpx
 
+# Inject UI-set API keys (runtime_api_keys.json) into os.environ BEFORE the crawler
+# imports below — several crawlers read their key at module load, so this must run first.
+import runtime_env  # noqa: F401  (import-time side effect)
+
 from graph import GraphDB
 from crawlers.opencorporates import OpenCorporatesCrawler
 from crawlers.github import GitHubCrawler
@@ -4939,7 +4943,9 @@ def _save_runtime_keys(updates: dict) -> None:
         pass
 
 
-# Restore runtime keys into os.environ at import time (runs on every reload).
+# Restore runtime keys into os.environ (idempotent safety net — the same injection now
+# also runs earlier, before the crawler imports, via `import runtime_env` at the top, so
+# module-level `os.getenv` key reads in crawlers pick up UI-set keys without a restart).
 # docker-compose injects empty strings for optional keys (SHODAN_API_KEY=""),
 # so we check the VALUE, not just key presence, before overwriting.
 for _rk, _rv in _load_runtime_keys().items():
