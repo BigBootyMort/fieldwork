@@ -123,6 +123,12 @@ the base `input, select, textarea` rule. Keep that in mind for any new dropdowns
 - The repo uses `core.autocrlf input`; keep line endings LF. Edit with UTF-8 tooling.
 - After a change, a hard refresh shows it. To actually confirm a fix, drive the UI (the
   `run` / `verify` skills) rather than only eyeballing the diff.
+- **No external CDNs — vendor assets locally.** This is a localhost-only, OPSEC-sensitive
+  tool; a `<script src="https://cdn…">`, external font, or map-tile URL leaks usage to that
+  host and breaks offline. Third-party libs, fonts, and the world GeoJSON are vendored under
+  `frontend/static/vendor/` and `static/fonts/` and served by nginx. Add new assets there,
+  not from a CDN. (Opt-in `target="_blank"` "view on OSM/Google Maps" links are user-clicked
+  and fine.)
 
 ## Related
 

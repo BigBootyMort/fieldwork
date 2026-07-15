@@ -56,6 +56,14 @@ Key `Settings` env vars: `NEO4J_URI/USER/PASSWORD`, `FIELDWORK_API` (http://back
   nginx change — a newly registered `/api/<id>/` route is reachable immediately.
 - `modules/<id>/` — `manifest.js` (registers with Shell), `view.html`, `view.js`, `style.css`.
 
+**No external CDNs (both frontends).** As a localhost-only, OPSEC-sensitive tool, all
+third-party assets are vendored and served by nginx — nothing loads from a CDN at runtime.
+Shell: `modules/news/vendor/` (Leaflet + world GeoJSON), `modules/vendor/fonts/` (web fonts).
+Legacy: `frontend/static/vendor/` (Leaflet + plugins, Cytoscape, world GeoJSON),
+`frontend/static/fonts/`. Maps render a local world-outline GeoJSON instead of external map
+tiles. Only opt-in `target="_blank"` links (OSM/Google Maps "view" links) hit external hosts,
+and only on user click.
+
 ## Data model (Neo4j, single instance shared by everything)
 
 - Fieldwork-managed: `Person`, `Company`, `Location`; SpiderFoot-promoted: `Email`,

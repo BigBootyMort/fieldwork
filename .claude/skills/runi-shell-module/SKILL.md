@@ -102,6 +102,14 @@ Four files, following the lazy-load convention so a module's JS/CSS only loads w
 **Add the script tag** to `shell/frontend/index.html` (grep `modules/`):
 `<script src="/modules/<id>/manifest.js"></script>`.
 
+**No external CDNs — vendor locally.** This is a localhost-only, OPSEC-sensitive tool: an
+external `<script>`/font/tile URL leaks usage and breaks offline. The shell frontend only
+mounts specific paths (`index.html`, `shell.js`, `style.css`, `modules`, `nginx.conf`), so
+put third-party assets under a `vendor/` dir inside a mounted path — e.g.
+`modules/<id>/vendor/…` (module-specific, as the news module does with Leaflet) or
+`modules/vendor/…` (shared, e.g. the local fonts at `/modules/vendor/fonts/`). Reference
+them with absolute `/modules/...` URLs.
+
 ## nginx — nothing to do
 
 `shell/frontend/nginx.conf` proxies **all** `/api/` to the backend with one catch-all
