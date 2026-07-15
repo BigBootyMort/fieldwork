@@ -26,6 +26,14 @@ places, so a key set in one app does not appear in the other:
 | `shell/backend/app/llm_bridge.py` | News, Markets, Agent, Reports, Gigs, Presence | Agent settings UI → `modules/agent/agent_config.json`, then env |
 | `backend/app/llm_bridge.py` | Legacy Fieldwork (orchestrator, `llm.py`, vision) | `backend/app/runtime_api_keys.json` (loaded to env at import), then env |
 
+**Single-source via `.env` (recommended):** both backends declare
+`ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}` in `docker-compose.yml`, so one
+`ANTHROPIC_API_KEY=` line in `.env` powers Claude everywhere (this is what makes the shell
+use Claude instead of falling back to Ollama). The per-app stores above still work and take
+precedence over env: the Agent Settings UI (`agent_config.json`) for the shell, and
+`runtime_api_keys.json` for legacy. Changing `.env` needs a container **recreate**
+(`docker compose up -d backend shell-backend`), not just a restart.
+
 Both expose `claude_complete()` → `(text, engine)` with engine `"claude"` (API) or
 `"claude-code"` (bridge); raise `NoClaudeError` when neither Claude engine is available.
 The **Fieldwork** bridge additionally has `call_claude_api_vision()` (multimodal) — image
