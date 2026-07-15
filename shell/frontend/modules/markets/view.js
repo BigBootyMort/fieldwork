@@ -1296,14 +1296,23 @@ window.MarketsView = (() => {
         document.querySelectorAll('.mkt-tab').forEach(b =>
             b.classList.toggle('active', b.dataset.tab === tab));
 
-        const watchlist = tab === 'watchlist';
-        document.getElementById('markets-watchlist-pane').style.display = watchlist ? '' : 'none';
-        document.getElementById('markets-portfolio-pane').style.display = watchlist ? 'none' : '';
-        document.getElementById('mkt-watchlist-filters').style.display  = watchlist ? '' : 'none';
-        document.getElementById('markets-add-form').style.display       = watchlist ? '' : 'none';
-        document.getElementById('mkt-track-btn').style.display          = watchlist ? 'none' : '';
+        // Show only the selected pane
+        document.querySelectorAll('.mkt-pane').forEach(p => { p.style.display = 'none'; });
+        const pane = document.getElementById(`markets-${tab}-pane`);
+        if (pane) pane.style.display = '';
 
-        if (!watchlist) renderPortfolio();
+        // Toolbar: watchlist-only filters + add form; track button only on portfolio
+        const watchlist = tab === 'watchlist';
+        document.getElementById('mkt-watchlist-filters').style.display = watchlist ? '' : 'none';
+        document.getElementById('markets-add-form').style.display      = watchlist ? '' : 'none';
+        document.getElementById('mkt-track-btn').style.display         = tab === 'portfolio' ? '' : 'none';
+
+        // Per-tab lazy init
+        if (tab === 'portfolio')     renderPortfolio();
+        else if (tab === 'screener') { _initScreenerTab(); if (!_screenerData) _loadScreener(); }
+        else if (tab === 'account')  _loadAccount();
+        else if (tab === 'analysis') _initAnalysisTab();
+        else if (tab === 'research') _initResearchTab();
     }
 
     // ── Add-position modal ────────────────────────────────────────────────────
@@ -1686,8 +1695,6 @@ window.MarketsView = (() => {
         clearInterval(state.refreshTimer);
         state.refreshTimer = null;
     }
-
-    return { mount, unmount };
 
 // ════════════════════════════════════════════════════════
 // AI ANALYSIS TAB
@@ -2357,9 +2364,5 @@ function _renderResearchOutput(symbol, data) {
   btn.addEventListener('click', () => _mktTabSwitch('research'));
 })();
 
-// Extend _mktTabSwitch to handle research tab
-const _origMktTabSwitch = _mktTabSwitch;
-// Patch: _mktTabSwitch already handles unknown tabs gracefully (shows pane, clears active)
-// We just need to wire the init call — do it via the existing tab click wiring above
-// and ensure _initResearchTab is called on switch.
+    return { mount, unmount };
 })();
