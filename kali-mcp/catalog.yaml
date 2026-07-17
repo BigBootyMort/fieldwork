@@ -1,0 +1,6 @@
+registry:
+  kali-mcp:
+    description: Kali Linux reconnaissance / scanning tools (nmap, dig, whois, whatweb, nikto, gobuster) over MCP. Authorized testing only.
+    title: Kali MCP
+    type: server
+    image: kali-mcp:latest
