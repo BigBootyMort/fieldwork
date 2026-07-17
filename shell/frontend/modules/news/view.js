@@ -109,7 +109,14 @@ window.NewsView = (function () {
         // Give the browser two animation frames to finish layout before
         // Leaflet measures the container.  Without this the map div often
         // has 0 × 0 dimensions on first render and shows a blank pane.
-        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+        // rAF never fires while the tab isn't painting (backgrounded / headless),
+        // so race it against a timeout — otherwise init would hang forever there.
+        await new Promise(r => {
+            let done = false;
+            const finish = () => { if (!done) { done = true; r(); } };
+            requestAnimationFrame(() => requestAnimationFrame(finish));
+            setTimeout(finish, 300);
+        });
 
         // Safety-net: if the container still reports no height, wait a bit
         // longer (happens when the CSS grid hasn't settled yet).
