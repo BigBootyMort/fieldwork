@@ -14,9 +14,12 @@ at FIELDWORK_API and is loaded into the shell via iframe.
 from __future__ import annotations
 
 import logging
+import os
 from contextlib  import asynccontextmanager
-from fastapi     import FastAPI
+from fastapi     import FastAPI, UploadFile, File, HTTPException
+from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
 from deps        import build_deps, Settings
 from registry    import ModuleRegistry
@@ -111,3 +114,84 @@ async def public_config():
         "ollama_url":      s.OLLAMA_URL,
         "ollama_model":    s.OLLAMA_MODEL,
     }
+
+
+# ── Runi voice — local TTS (Piper) + STT (Whisper), proxied for the frontend ──
+# Infrastructure, not a nav module: app-level routes (no manifest → no phantom tab).
+# The containers are reached by service name on the compose network; nothing here
+# calls out to the internet.
+PIPER_URL   = os.getenv("PIPER_URL",   "http://piper:5000")
+WHISPER_URL = os.getenv("WHISPER_URL", "http://whisper:5000")
+
+
+class TTSRequest(BaseModel):
+    text: str
+    voice: str | None = None
+    length_scale: float | None = None   # >1 slower, <1 faster
+
+
+@app.get("/api/voice/health")
+async def voice_health():
+    http = deps["http"]
+    out = {}
+    for name, url in (("piper", PIPER_URL), ("whisper", WHISPER_URL)):
+        try:
+            r = await http.get(f"{url}/health", timeout=5)
+            out[name] = r.json() if r.status_code == 200 else {"ok": False, "status": r.status_code}
+        except Exception as exc:
+            out[name] = {"ok": False, "error": str(exc)}
+    return out
+
+
+@app.get("/api/voice/voices")
+async def voice_voices():
+    http = deps["http"]
+    try:
+        r = await http.get(f"{PIPER_URL}/health", timeout=5)
+        d = r.json()
+        return {"voices": d.get("voices", []), "default": d.get("default")}
+    except Exception as exc:
+        raise HTTPException(503, f"piper unavailable: {exc}")
+
+
+async def _piper_tts(payload: dict) -> Response:
+    http = deps["http"]
+    try:
+        r = await http.post(f"{PIPER_URL}/tts", json=payload, timeout=60)
+    except Exception as exc:
+        raise HTTPException(503, f"piper unavailable: {exc}")
+    if r.status_code != 200:
+        raise HTTPException(502, f"piper error {r.status_code}")
+    return Response(content=r.content, media_type="audio/wav")
+
+
+@app.post("/api/voice/tts")
+async def voice_tts_post(req: TTSRequest):
+    return await _piper_tts({k: v for k, v in req.dict().items() if v is not None})
+
+
+@app.get("/api/voice/tts")
+async def voice_tts_get(text: str, voice: str | None = None, length_scale: float | None = None):
+    payload: dict = {"text": text}
+    if voice:
+        payload["voice"] = voice
+    if length_scale:
+        payload["length_scale"] = length_scale
+    return await _piper_tts(payload)
+
+
+@app.post("/api/voice/stt")
+async def voice_stt(file: UploadFile = File(...)):
+    http = deps["http"]
+    data = await file.read()
+    try:
+        r = await http.post(
+            f"{WHISPER_URL}/stt",
+            files={"file": (file.filename or "audio.webm", data, file.content_type or "audio/webm")},
+            timeout=120,
+        )
+    except Exception as exc:
+        raise HTTPException(503, f"whisper unavailable: {exc}")
+    if r.status_code != 200:
+        raise HTTPException(502, f"whisper error {r.status_code}")
+    return r.json()

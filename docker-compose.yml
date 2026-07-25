@@ -275,6 +275,24 @@ services:
     profiles:
       - translation
 
+  # ── Runi voice — local neural TTS (Piper). Models baked in → offline runtime.
+  #    Reached by shell-backend at http://piper:5000; 5051 is a localhost audition port.
+  piper:
+    build: ./piper
+    container_name: fieldwork-piper
+    ports:
+      - "127.0.0.1:5051:5000"
+    environment:
+      PIPER_VOICE: ${PIPER_VOICE:-en_GB-jenny_dioco-medium}
+    restart: unless-stopped
+
+  # ── Runi ears — local speech-to-text (faster-whisper). Model baked in → offline.
+  #    Reached by shell-backend at http://whisper:5000.
+  whisper:
+    build: ./whisper
+    container_name: fieldwork-whisper
+    restart: unless-stopped   # model (base.en) is baked into the image
+
 volumes:
   neo4j_data:
   neo4j_logs:
