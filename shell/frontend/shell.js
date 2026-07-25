@@ -130,9 +130,9 @@
             // keeps talking even when the voice containers are down.
             //   Shell.speak(text[, {voice, length_scale}])  → speak
             //   Shell.speak(null)                           → stop
-            const VOICE    = 'en_GB-alba-medium'; // clean-English fallback voice
-            const ACCENT   = 'ru';                // Runi's Russian accent (null = clean)
-            const STRENGTH = 'medium';            // light | medium | heavy
+            const VOICE    = 'en_GB-alba-medium'; // Runi — composed British female
+            const ACCENT   = null;                // clean by default ('ru' available as an option)
+            const STRENGTH = 'medium';            // accent intensity when ACCENT is set
             let ac = null, curSrc = null;
 
             // ── browser-TTS fallback (previous behaviour, trimmed) ──
