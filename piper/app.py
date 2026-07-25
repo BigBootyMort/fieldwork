@@ -1,33 +1,21 @@
 """
-Runi Piper TTS — local neural text-to-speech (no external calls at runtime).
+Runi Piper TTS — local neural text-to-speech via the official Piper binary
+(bundled espeak-ng-data → correct pronunciation), fully offline at runtime.
 
-Voice models are baked into the image at build time (Dockerfile ADDs them from
-HuggingFace), so synthesis is fully offline. The shell backend proxies this at
-/api/voice/tts; nothing is exposed to the browser directly except via that proxy
-(plus a localhost audition port in compose).
+The shell backend proxies this at /api/voice/tts; compose also maps a localhost
+audition port (5051). GET /audition serves a tiny A/B page for both voices.
 """
-import io
 import os
-import wave
+import subprocess
+import tempfile
 
-from fastapi import FastAPI
-from fastapi.responses import Response
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import Response, HTMLResponse
 from pydantic import BaseModel
-from piper import PiperVoice
 
 VOICES_DIR = os.getenv("VOICES_DIR", "/voices")
 DEFAULT = os.getenv("PIPER_VOICE", "en_GB-jenny_dioco-medium")
-_cache: dict = {}
-
-
-def _voice(name: str | None):
-    name = name or DEFAULT
-    if name not in _cache:
-        path = os.path.join(VOICES_DIR, name + ".onnx")
-        if not os.path.exists(path):
-            raise FileNotFoundError(f"voice not installed: {name}")
-        _cache[name] = PiperVoice.load(path)
-    return _cache[name]
+PIPER_BIN = "/opt/piper/piper"
 
 
 def _installed() -> list[str]:
@@ -38,14 +26,26 @@ def _installed() -> list[str]:
 
 
 def _synth(text: str, voice: str | None, length_scale: float | None) -> bytes:
-    v = _voice(voice)
-    buf = io.BytesIO()
-    with wave.open(buf, "wb") as wf:
-        kw = {}
+    model = os.path.join(VOICES_DIR, (voice or DEFAULT) + ".onnx")
+    if not os.path.exists(model):
+        raise HTTPException(400, f"voice not installed: {voice or DEFAULT}")
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tf:
+        out = tf.name
+    try:
+        cmd = [PIPER_BIN, "--model", model, "--output_file", out]
         if length_scale:
-            kw["length_scale"] = length_scale
-        v.synthesize(text, wf, **kw)
-    return buf.getvalue()
+            cmd += ["--length_scale", str(length_scale)]
+        proc = subprocess.run(cmd, input=text.encode("utf-8"),
+                              capture_output=True, timeout=60)
+        if proc.returncode != 0:
+            raise HTTPException(500, "piper: " + proc.stderr.decode(errors="ignore")[-300:])
+        with open(out, "rb") as f:
+            return f.read()
+    finally:
+        try:
+            os.unlink(out)
+        except OSError:
+            pass
 
 
 app = FastAPI(title="Runi Piper TTS")
@@ -59,7 +59,7 @@ def health():
 class TTSRequest(BaseModel):
     text: str
     voice: str | None = None
-    length_scale: float | None = None  # >1 slower, <1 faster
+    length_scale: float | None = None
 
 
 @app.post("/tts")
@@ -69,5 +69,21 @@ def tts_post(req: TTSRequest):
 
 @app.get("/tts")
 def tts_get(text: str, voice: str | None = None, length_scale: float | None = None):
-    """Handy for auditioning in a browser: /tts?text=hello&voice=en_GB-alba-medium"""
     return Response(_synth(text, voice, length_scale), media_type="audio/wav")
+
+
+@app.get("/audition", response_class=HTMLResponse)
+def audition():
+    """A/B every installed voice from one page — no query-string fiddling."""
+    voices = _installed()
+    sample = "Runi online. Three breaches, one sanctions hit. I would pivot on the registrant email first."
+    rows = "".join(
+        f'<div style="margin:14px 0"><b>{v}</b>{" — default" if v==DEFAULT else ""}<br>'
+        f'<audio controls preload="none" src="/tts?voice={v}&text={sample.replace(" ","%20")}"></audio></div>'
+        for v in voices
+    )
+    return (
+        '<body style="background:#04050a;color:#d7e3ff;font-family:monospace;padding:28px;max-width:640px">'
+        '<h2 style="color:#18e0ff">RUNI // VOICE AUDITION</h2>'
+        f'<p style="color:#5f6a97">Sample: “{sample}”</p>{rows}</body>'
+    )
