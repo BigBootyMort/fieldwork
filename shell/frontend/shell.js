@@ -130,7 +130,8 @@
             // keeps talking even when the voice containers are down.
             //   Shell.speak(text[, {voice, length_scale}])  → speak
             //   Shell.speak(null)                           → stop
-            const VOICE = 'en_GB-alba-medium';   // British-female, composed — Runi
+            const VOICE  = 'en_GB-alba-medium';   // British-female, composed — Runi
+            const ACCENT = 'ru';                  // Runi's Russian accent (null = clean)
             let ac = null, curSrc = null;
 
             // ── browser-TTS fallback (previous behaviour, trimmed) ──
@@ -177,7 +178,12 @@
                 try {
                     const r = await fetch('/api/voice/tts', {
                         method: 'POST', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ text: String(text), voice: opts.voice || VOICE, length_scale: opts.length_scale }),
+                        body: JSON.stringify({
+                            text: String(text),
+                            voice: opts.voice || VOICE,
+                            accent: opts.accent !== undefined ? opts.accent : ACCENT,
+                            length_scale: opts.length_scale,
+                        }),
                     });
                     if (!r.ok) throw new Error('tts ' + r.status);
                     const bytes = await r.arrayBuffer();

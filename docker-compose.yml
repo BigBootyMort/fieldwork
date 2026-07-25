@@ -284,6 +284,8 @@ services:
       - "127.0.0.1:5051:5000"
     environment:
       PIPER_VOICE: ${PIPER_VOICE:-en_GB-alba-medium}
+    volumes:
+      - ./piper/app.py:/app/app.py:ro   # live-mount so accent tuning needs only a restart
     restart: unless-stopped
 
   # ── Runi ears — local speech-to-text (faster-whisper). Model baked in → offline.

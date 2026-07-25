@@ -1,17 +1,17 @@
-# Runi Piper TTS — uses the official Piper *binary* (not the pip wheel), which
-# bundles a complete, matching espeak-ng-data. The pip piper-phonemize wheel
-# fails with "Failed to set eSpeak-ng voice" on this platform, mangling
-# pronunciation; the binary phonemizes correctly.
+# Runi Piper TTS — official Piper binary for the clean voice, plus a custom
+# phoneme-rewrite path (espeak-ng → accent rules → ONNX) for accented voices.
 FROM python:3.11-slim
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates \
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates espeak-ng \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip install --no-cache-dir fastapi "uvicorn[standard]"
+# fastapi/uvicorn for the API; onnxruntime+numpy to drive the voice model directly
+# for the accent path (bypassing piper's phonemizer so we control the phonemes).
+RUN pip install --no-cache-dir fastapi "uvicorn[standard]" onnxruntime numpy
 
-# Official Piper binary + its bundled espeak-ng-data and shared libs → /opt/piper/
+# Official Piper binary + bundled espeak-ng-data/libs → /opt/piper/ (clean voice path)
 RUN curl -sL "https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_linux_x86_64.tar.gz" \
       -o /tmp/piper.tar.gz \
     && tar -xzf /tmp/piper.tar.gz -C /opt \
