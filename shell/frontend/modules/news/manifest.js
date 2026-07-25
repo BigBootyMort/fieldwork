@@ -7,16 +7,14 @@ Shell.register({
     description: 'World news choropleth + LLM brief + AI assistant',
 
     async mount(root) {
-        // Lazy-load view.js the first time the module is opened
-        if (!window.NewsView) {
-            await new Promise((resolve, reject) => {
-                const s = document.createElement('script');
-                s.src = '/modules/news/view.js';
-                s.onload  = resolve;
-                s.onerror = reject;
-                document.head.appendChild(s);
-            });
-        }
+        const load = (src) => new Promise((resolve, reject) => {
+            const s = document.createElement('script');
+            s.src = src; s.onload = resolve; s.onerror = reject;
+            document.head.appendChild(s);
+        });
+        // Lazy-load the avatar + view the first time the module is opened
+        if (!window.RuniAvatar) await load('/modules/news/avatar.js');
+        if (!window.NewsView)   await load('/modules/news/view.js');
         await window.NewsView.mount(root);
     },
 

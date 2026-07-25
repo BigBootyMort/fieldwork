@@ -217,13 +217,26 @@
         //   const rec = Shell.listen(text => input.value = text);
         //   … later …  rec.stop();
         listen(onResult, onError) {
-            let rec = null, stream = null;
+            let rec = null, stream = null, micCtx = null;
             const chunks = [];
+            const _clearMic = () => {
+                Shell.micAnalyser = null;
+                try { if (micCtx) { micCtx.close(); micCtx = null; } } catch (e) {}
+            };
             navigator.mediaDevices?.getUserMedia({ audio: true }).then(s => {
                 stream = s;
+                // Expose live mic amplitude for the avatar (local — never sent anywhere).
+                try {
+                    micCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    const src = micCtx.createMediaStreamSource(s);
+                    const an = micCtx.createAnalyser(); an.fftSize = 256;
+                    src.connect(an);
+                    Shell.micAnalyser = an;
+                } catch (e) {}
                 rec = new MediaRecorder(s);
                 rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
                 rec.onstop = async () => {
+                    _clearMic();
                     try { stream.getTracks().forEach(t => t.stop()); } catch (e) {}
                     try {
                         const blob = new Blob(chunks, { type: rec.mimeType || 'audio/webm' });

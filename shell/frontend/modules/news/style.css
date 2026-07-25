@@ -349,6 +349,30 @@
     padding: 0.6rem 0.85rem 0.7rem;
 }
 
+/* Runi presence — the dot-face avatar + status */
+#runi-presence {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    margin-bottom: 0.5rem;
+}
+#runi-face {
+    width: 132px;
+    height: 68px;
+    flex-shrink: 0;
+    background: radial-gradient(70% 90% at 50% 40%, rgba(24,224,255,0.05), transparent 70%);
+    border: 1px solid var(--border);
+    border-left: 2px solid rgba(24,224,255,0.35);
+}
+#runi-id {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.62rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+}
+#runi-id #runi-status { color: var(--primary); }
+
 /* Chat log — grows up to ~40% of the viewport, then scrolls */
 #news-assistant-log {
     max-height: clamp(120px, 40vh, 320px);

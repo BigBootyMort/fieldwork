@@ -556,6 +556,7 @@ window.NewsView = (function () {
         if (inp)     inp.disabled     = true;
 
         appendChat('user', text);
+        window.RuniAvatar?.setState('thinking');   // dissolve into the thought-graph
 
         // Thinking indicator — replaced when the response arrives
         const thinking = _appendThinking();
@@ -573,9 +574,11 @@ window.NewsView = (function () {
             thinking.remove();
             const reply = data.reply || '_No reply from Runi. Is Ollama running?_';
             appendChat('bot', reply);
-            if (state.ttsOn) speak(stripMarkdown(reply));
+            if (state.ttsOn) speak(stripMarkdown(reply));   // speak() flips avatar to 'speaking'
+            else window.RuniAvatar?.setState('idle');
         } catch (e) {
             thinking.remove();
+            window.RuniAvatar?.setState('idle');
             // Distinguish network errors from backend errors
             const msg = e.message.includes('Failed to fetch')
                 ? 'Cannot reach the shell backend. Is it running?'
@@ -730,7 +733,12 @@ window.NewsView = (function () {
         // (with a browser-speechSynthesis fallback baked into Shell.speak itself).
         state.ttsState = 'playing';
         _updateBriefControls();
-        const done = () => { state.ttsState = 'idle'; _updateBriefControls(); };
+        window.RuniAvatar?.setState('speaking');   // mouth rides Shell.voiceAnalyser
+        const done = () => {
+            state.ttsState = 'idle';
+            _updateBriefControls();
+            window.RuniAvatar?.setState('idle');
+        };
         if (window.Shell && Shell.speak) {
             Shell.speak(text, { onend: done });
             return;
@@ -1107,6 +1115,7 @@ window.NewsView = (function () {
                     micBtn.classList.remove('mic-on');
                     micBtn.textContent = '🎙';
                     inp.placeholder = 'Transcribing…';
+                    window.RuniAvatar?.setState('thinking');
                     state.micRec.stop();
                     state.micRec = null;
                     return;
@@ -1115,19 +1124,29 @@ window.NewsView = (function () {
                 micBtn.classList.add('mic-on');
                 micBtn.textContent = '⏹';
                 inp.placeholder = '● listening…';
+                window.RuniAvatar?.setState('listening');   // face reacts to Shell.micAnalyser
                 state.micRec = Shell.listen(
                     (text) => {
                         inp.placeholder = "Ask Runi about today's news…";
                         if (text) { inp.value = text; askAssistant(text); inp.value = ''; }
+                        else window.RuniAvatar?.setState('idle');
                     },
                     (err) => {
                         micBtn.classList.remove('mic-on'); micBtn.textContent = '🎙';
                         inp.placeholder = "Ask Runi about today's news…";
                         state.micRec = null;
+                        window.RuniAvatar?.setState('idle');
                         Shell.toast('Mic error: ' + (err?.message || err), 'error', 2500);
                     },
                 );
             });
+        }
+
+        // Runi avatar — the dot-face presence in the assistant strip
+        const faceEl = document.getElementById('runi-face');
+        if (faceEl && window.RuniAvatar) {
+            window.RuniAvatar.mount(faceEl);
+            window.RuniAvatar.setState('idle');
         }
 
         // Initial render: load map, heat + articles, and check LLM readiness
@@ -1149,6 +1168,9 @@ window.NewsView = (function () {
     function unmount() {
         // Leaflet doesn't tolerate detached DOM; release the map cleanly.
         if ('speechSynthesis' in window) speechSynthesis.cancel();
+        window.Shell?.speak?.stop?.();
+        window.RuniAvatar?.unmount();
+        if (state.micRec) { try { state.micRec.stop(); } catch (e) {} state.micRec = null; }
         if (state.map) {
             state.map.remove();
             state.map = null;
