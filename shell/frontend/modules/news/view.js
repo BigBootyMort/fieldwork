@@ -47,7 +47,7 @@ window.NewsView = (function () {
         articles:        [],
         articlesByISO:   {},
         heat:            [],
-        ttsOn:           false,
+        ttsOn:           true,    // Runi speaks her replies by default (🔈 toggles)
         ttsState:        'idle',   // 'idle' | 'playing' | 'paused'
         chatLog:         [],
         leafletReady:    false,

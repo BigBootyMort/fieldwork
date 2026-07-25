@@ -95,7 +95,9 @@ window.RuniAvatar = (function () {
         for (const d of dots) {
             const ripple = state === 'listening'
                 ? Math.sin(Math.hypot(d.u, d.v) * 4 - now * 0.006) * amp * 0.5 : 0;
-            const breathe = Math.sin(now * 0.0016 + d.v * 2) * 0.03;
+            // visible ambient life at rest: a breathing swell + a slow radial shimmer
+            const breathe = Math.sin(now * 0.0022 + d.v * 2.4) * 0.06
+                          + Math.sin(now * 0.004 - Math.hypot(d.u, d.v) * 3) * 0.02;
             const noise = scatter
                 ? Math.sin(now * 0.004 + d.x * 0.05) * Math.cos(now * 0.003 + d.y * 0.05) * 0.5 : 0;
             const mouthOpen = state === 'speaking' ? amp : 0;
