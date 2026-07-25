@@ -725,52 +725,43 @@ window.NewsView = (function () {
     }
 
     function speak(text) {
-        if (!('speechSynthesis' in window) || !text) return;
+        if (!text) return;
+        // Runi's voice is now the shared Shell.speak → local Piper neural TTS
+        // (with a browser-speechSynthesis fallback baked into Shell.speak itself).
+        state.ttsState = 'playing';
+        _updateBriefControls();
+        const done = () => { state.ttsState = 'idle'; _updateBriefControls(); };
+        if (window.Shell && Shell.speak) {
+            Shell.speak(text, { onend: done });
+            return;
+        }
+        // Last-resort inline fallback if the shell helper isn't present.
+        if (!('speechSynthesis' in window)) { done(); return; }
         try {
             speechSynthesis.cancel();
             const u = new SpeechSynthesisUtterance(text);
             const voice = _pickVoice();
-            if (voice) {
-                u.voice = voice;
-                u.lang  = voice.lang;
-            } else {
-                u.lang = 'en-GB';
-            }
-            // Runi voice profile — techy-female, clear and slightly elevated
-            u.rate  = 0.94;   // slightly below default: dense news text needs breath room
-            u.pitch = 1.15;   // slightly higher than neutral → feminine/techy character
-            u.volume = 1.0;
-
-            u.onstart = () => { state.ttsState = 'playing'; _updateBriefControls(); };
-            u.onend   = () => { state.ttsState = 'idle';    _updateBriefControls(); };
-            u.onerror = () => { state.ttsState = 'idle';    _updateBriefControls(); };
-
-            state.ttsState = 'playing';
-            _updateBriefControls();
+            if (voice) { u.voice = voice; u.lang = voice.lang; } else { u.lang = 'en-GB'; }
+            u.rate = 0.94; u.pitch = 1.15; u.volume = 1.0;
+            u.onend = done; u.onerror = done;
             speechSynthesis.speak(u);
-        } catch (e) {
-            console.warn('Runi TTS failed', e);
-            state.ttsState = 'idle';
-            _updateBriefControls();
-        }
+        } catch (e) { console.warn('Runi TTS failed', e); done(); }
     }
 
     function briefPause() {
-        if (!('speechSynthesis' in window)) return;
         if (state.ttsState === 'playing') {
-            speechSynthesis.pause();
+            Shell.speak?.pause?.();
             state.ttsState = 'paused';
-            _updateBriefControls();
         } else if (state.ttsState === 'paused') {
-            speechSynthesis.resume();
+            Shell.speak?.resume?.();
             state.ttsState = 'playing';
-            _updateBriefControls();
         }
+        _updateBriefControls();
     }
 
     function briefStop() {
-        if (!('speechSynthesis' in window)) return;
-        speechSynthesis.cancel();
+        Shell.speak?.stop?.();
+        if ('speechSynthesis' in window) speechSynthesis.cancel();
         state.ttsState = 'idle';
         _updateBriefControls();
     }
@@ -1104,6 +1095,38 @@ window.NewsView = (function () {
                 if (!txt) return;
                 inp.value = '';
                 askAssistant(txt);
+            });
+        }
+
+        // Voice input — mic → local Whisper STT via Shell.listen. Click to start,
+        // click again to stop; the transcript drops into the box and auto-sends.
+        const micBtn = document.getElementById('news-assistant-mic');
+        if (micBtn && inp) {
+            micBtn.addEventListener('click', () => {
+                if (state.micRec) {                       // stop an in-progress take
+                    micBtn.classList.remove('mic-on');
+                    micBtn.textContent = '🎙';
+                    inp.placeholder = 'Transcribing…';
+                    state.micRec.stop();
+                    state.micRec = null;
+                    return;
+                }
+                if (!window.Shell?.listen) { Shell.toast('Voice input unavailable', 'error', 2000); return; }
+                micBtn.classList.add('mic-on');
+                micBtn.textContent = '⏹';
+                inp.placeholder = '● listening…';
+                state.micRec = Shell.listen(
+                    (text) => {
+                        inp.placeholder = "Ask Runi about today's news…";
+                        if (text) { inp.value = text; askAssistant(text); inp.value = ''; }
+                    },
+                    (err) => {
+                        micBtn.classList.remove('mic-on'); micBtn.textContent = '🎙';
+                        inp.placeholder = "Ask Runi about today's news…";
+                        state.micRec = null;
+                        Shell.toast('Mic error: ' + (err?.message || err), 'error', 2500);
+                    },
+                );
             });
         }
 

@@ -124,60 +124,113 @@
          *  sounding > any English.  Pitch 1.15, rate 0.94 — techy-feminine.
          * ──────────────────────────────────────────────────────────────── */
         speak: (() => {
-            // Preferred female voice list (same order as news/view.js)
+            // Runi's voice. Primary: local Piper neural TTS via /api/voice/tts, played
+            // through Web Audio so the avatar can tap real amplitude (Shell.voiceAnalyser).
+            // Fallback: browser speechSynthesis if Piper is unreachable, so the assistant
+            // keeps talking even when the voice containers are down.
+            //   Shell.speak(text[, {voice, length_scale}])  → speak
+            //   Shell.speak(null)                           → stop
+            const VOICE = 'en_GB-jenny_dioco-medium';   // British-female, warm — Runi
+            let ac = null, curSrc = null;
+
+            // ── browser-TTS fallback (previous behaviour, trimmed) ──
             const PREFERRED = [
-                'Microsoft Aria Online (Natural) - English (United States)',
                 'Microsoft Sonia Online (Natural) - English (United Kingdom)',
-                'Microsoft Jenny Online (Natural) - English (United States)',
-                'Microsoft Mia Online (Natural) - English (United Kingdom)',
                 'Microsoft Libby Online (Natural) - English (United Kingdom)',
-                'Microsoft Zira - English (United States)',
-                'Microsoft Hazel - English (United Kingdom)',
-                'Google UK English Female',
-                'Samantha', 'Karen', 'Moira', 'Tessa',
-                'Google US English',
+                'Google UK English Female', 'Samantha', 'Karen', 'Moira', 'Tessa',
             ];
             const MALE_RE = /\b(ryan|guy|david|mark|james|richard|george|daniel|tom|william|male)\b/i;
             let _cached = null;
-
             function _pick() {
                 if (_cached) return _cached;
                 const voices = window.speechSynthesis?.getVoices() || [];
                 if (!voices.length) return null;
-                for (const n of PREFERRED) {
-                    const v = voices.find(v => v.name === n);
-                    if (v) { _cached = v; return v; }
-                }
-                const byFemale = voices.find(v => /female/i.test(v.name) && v.lang?.startsWith('en'));
-                if (byFemale) { _cached = byFemale; return byFemale; }
-                _cached = [
-                    voices.find(v => v.lang === 'en-GB' && !MALE_RE.test(v.name)),
-                    voices.find(v => v.lang === 'en-US' && !MALE_RE.test(v.name)),
-                    voices.find(v => v.lang?.startsWith('en')),
-                    voices[0],
-                ].find(Boolean) || null;
+                for (const n of PREFERRED) { const v = voices.find(v => v.name === n); if (v) return (_cached = v); }
+                _cached = voices.find(v => /female/i.test(v.name) && v.lang?.startsWith('en'))
+                       || voices.find(v => v.lang?.startsWith('en') && !MALE_RE.test(v.name)) || voices[0] || null;
                 return _cached;
             }
-
             if ('speechSynthesis' in window) {
                 window.speechSynthesis.addEventListener('voiceschanged', () => { _cached = null; });
             }
-
-            return function speak(text) {
-                if (!('speechSynthesis' in window)) return;
-                speechSynthesis.cancel();
-                if (!text) return;
+            function _fallback(text, onend) {
+                if (!('speechSynthesis' in window)) { if (onend) onend(); return; }
                 try {
-                    const u = new SpeechSynthesisUtterance(String(text));
-                    const v = _pick();
-                    if (v) { u.voice = v; u.lang = v.lang; } else { u.lang = 'en-GB'; }
-                    u.rate   = 0.94;
-                    u.pitch  = 1.15;
-                    u.volume = 1.0;
+                    const u = new SpeechSynthesisUtterance(text);
+                    const v = _pick(); if (v) { u.voice = v; u.lang = v.lang; } else u.lang = 'en-GB';
+                    u.rate = 0.98; u.pitch = 1.05;
+                    if (onend) { u.onend = onend; u.onerror = onend; }
                     speechSynthesis.speak(u);
-                } catch (e) { console.warn('Runi Shell.speak failed', e); }
-            };
+                } catch (e) { console.warn('Runi fallback TTS failed', e); if (onend) onend(); }
+            }
+
+            function stop() {
+                try { if (curSrc) { curSrc.onended = null; curSrc.stop(); curSrc = null; } } catch (e) {}
+                try { speechSynthesis.cancel(); } catch (e) {}
+                Shell.voiceAnalyser = null;
+            }
+
+            async function speak(text, opts) {
+                stop();
+                if (!text) return;               // Shell.speak(null) → stop
+                opts = opts || {};
+                try {
+                    const r = await fetch('/api/voice/tts', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ text: String(text), voice: opts.voice || VOICE, length_scale: opts.length_scale }),
+                    });
+                    if (!r.ok) throw new Error('tts ' + r.status);
+                    const bytes = await r.arrayBuffer();
+                    ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+                    if (ac.state === 'suspended') { try { await ac.resume(); } catch (e) {} }
+                    const buf = await ac.decodeAudioData(bytes);
+                    const src = ac.createBufferSource(); src.buffer = buf;
+                    const an = ac.createAnalyser(); an.fftSize = 256;
+                    src.connect(an); an.connect(ac.destination);
+                    Shell.voiceAnalyser = an;          // avatar mouth reads this
+                    src.onended = () => {
+                        if (curSrc === src) { curSrc = null; Shell.voiceAnalyser = null; if (opts.onend) opts.onend(); }
+                    };
+                    src.start(); curSrc = src;
+                } catch (e) {
+                    console.warn('Runi Piper TTS unavailable, using browser voice:', e.message);
+                    _fallback(String(text), opts.onend);
+                }
+            }
+            speak.stop   = stop;
+            speak.pause  = () => { try { if (ac && ac.state === 'running')   ac.suspend(); } catch (e) {} try { speechSynthesis.pause();  } catch (e) {} };
+            speak.resume = () => { try { if (ac && ac.state === 'suspended') ac.resume();  } catch (e) {} try { speechSynthesis.resume(); } catch (e) {} };
+            return speak;
         })(),
+
+        // Runi's ears — mic → local Whisper STT (/api/voice/stt). Audio never
+        // leaves the machine. Returns a controller: call .stop() to end the take;
+        // the transcript arrives via onResult. Toggle a mic button on it.
+        //   const rec = Shell.listen(text => input.value = text);
+        //   … later …  rec.stop();
+        listen(onResult, onError) {
+            let rec = null, stream = null;
+            const chunks = [];
+            navigator.mediaDevices?.getUserMedia({ audio: true }).then(s => {
+                stream = s;
+                rec = new MediaRecorder(s);
+                rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+                rec.onstop = async () => {
+                    try { stream.getTracks().forEach(t => t.stop()); } catch (e) {}
+                    try {
+                        const blob = new Blob(chunks, { type: rec.mimeType || 'audio/webm' });
+                        const fd = new FormData();
+                        fd.append('file', blob, 'mic.webm');
+                        const r = await fetch('/api/voice/stt', { method: 'POST', body: fd });
+                        if (!r.ok) throw new Error('stt ' + r.status);
+                        const d = await r.json();
+                        onResult && onResult((d.text || '').trim());
+                    } catch (e) { onError ? onError(e) : console.warn('Runi listen failed', e); }
+                };
+                rec.start();
+            }).catch(e => { onError ? onError(e) : console.warn('mic unavailable', e); });
+            return { stop() { try { if (rec && rec.state !== 'inactive') rec.stop(); } catch (e) {} } };
+        },
 
         async api(path, opts) {
             // Path resolution rules:
