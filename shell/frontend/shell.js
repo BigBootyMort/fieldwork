@@ -130,7 +130,7 @@
             // keeps talking even when the voice containers are down.
             //   Shell.speak(text[, {voice, length_scale}])  → speak
             //   Shell.speak(null)                           → stop
-            const VOICE = 'en_GB-jenny_dioco-medium';   // British-female, warm — Runi
+            const VOICE = 'en_GB-alba-medium';   // British-female, composed — Runi
             let ac = null, curSrc = null;
 
             // ── browser-TTS fallback (previous behaviour, trimmed) ──

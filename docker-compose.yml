@@ -283,7 +283,7 @@ services:
     ports:
       - "127.0.0.1:5051:5000"
     environment:
-      PIPER_VOICE: ${PIPER_VOICE:-en_GB-jenny_dioco-medium}
+      PIPER_VOICE: ${PIPER_VOICE:-en_GB-alba-medium}
     restart: unless-stopped
 
   # ── Runi ears — local speech-to-text (faster-whisper). Model baked in → offline.
