@@ -24,6 +24,11 @@ ADD https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_GB/jenny_dioc
 ADD https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_GB/alba/medium/en_GB-alba-medium.onnx           /voices/en_GB-alba-medium.onnx
 ADD https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_GB/alba/medium/en_GB-alba-medium.onnx.json      /voices/en_GB-alba-medium.onnx.json
 
+# Russian acoustic model — used by the accent path so English (russified phonemes)
+# is spoken in a real Russian voice/prosody, not a Brit doing substitutions.
+ADD https://huggingface.co/rhasspy/piper-voices/resolve/main/ru/ru_RU/irina/medium/ru_RU-irina-medium.onnx      /voices/ru_RU-irina-medium.onnx
+ADD https://huggingface.co/rhasspy/piper-voices/resolve/main/ru/ru_RU/irina/medium/ru_RU-irina-medium.onnx.json /voices/ru_RU-irina-medium.onnx.json
+
 COPY app.py /app/app.py
 
 EXPOSE 5000

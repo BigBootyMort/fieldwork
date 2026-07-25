@@ -122,12 +122,24 @@ def _ids(ipa: str, pim: dict) -> list[int]:
     return ids
 
 
+# Accent = a native acoustic model (its voice/prosody) + English phonemes russified
+# into that language's sound set. English is phonemized with an English espeak voice,
+# NOT the model's own language, so the *words* stay English.
+_ACCENT_MODEL = {"ru": "ru_RU-irina-medium"}
+_ACCENT_PHONEME_VOICE = "en-gb-x-rp"
+
+
 def _synth_accent(text: str, voice: str, accent: str, length_scale: float | None) -> bytes:
-    sess, cfg = _load(voice)
+    # Use the accent's native acoustic model if installed; else fall back to
+    # applying rules on the requested English voice (still better than nothing).
+    model = _ACCENT_MODEL.get(accent)
+    if not (model and os.path.exists(os.path.join(VOICES_DIR, model + ".onnx"))):
+        model = voice
+    sess, cfg = _load(model)
     pim = cfg["phoneme_id_map"]
-    ipa = _phonemize(text, cfg.get("espeak", {}).get("voice", "en-us"))
+    ipa = _phonemize(text, _ACCENT_PHONEME_VOICE)   # English pronunciation…
     if accent == "ru":
-        ipa = _russify(ipa)
+        ipa = _russify(ipa)                          # …rewritten to Russian sounds
     ids = _ids(ipa, pim)
 
     inf = cfg.get("inference", {})
@@ -195,21 +207,25 @@ def tts_get(text: str, voice: str | None = None, accent: str | None = None, leng
 
 @app.get("/audition", response_class=HTMLResponse)
 def audition():
-    voices = _installed()
+    en_voices = [v for v in _installed() if v.startswith("en")]
     sample = "Runi online. Three breaches, one sanctions hit. I would pivot on the registrant email first."
     q = sample.replace(" ", "%20")
     blocks = []
-    for v in voices:
+    for v in en_voices:
         tag = " — default" if v == DEFAULT else ""
         blocks.append(
-            f'<div style="margin:16px 0"><b>{v}</b>{tag}<br>'
-            f'<div style="color:#5f6a97;font-size:.8rem">clean</div>'
-            f'<audio controls preload="none" src="/tts?voice={v}&text={q}"></audio><br>'
-            f'<div style="color:#ff2e97;font-size:.8rem;margin-top:4px">russian accent</div>'
-            f'<audio controls preload="none" src="/tts?voice={v}&accent=ru&text={q}"></audio></div>'
+            f'<div style="margin:14px 0"><b>{v}</b>{tag} '
+            f'<span style="color:#5f6a97">· clean English</span><br>'
+            f'<audio controls preload="none" src="/tts?voice={v}&text={q}"></audio></div>'
         )
+    ru_block = (
+        '<div style="margin:20px 0;padding-top:14px;border-top:1px solid #1b2348">'
+        '<b style="color:#ff2e97">Russian accent</b> '
+        '<span style="color:#5f6a97">· English words, Russian voice (irina) + accent rules</span><br>'
+        f'<audio controls preload="none" src="/tts?accent=ru&text={q}"></audio></div>'
+    )
     return (
         '<body style="background:#04050a;color:#d7e3ff;font-family:monospace;padding:28px;max-width:680px">'
         '<h2 style="color:#18e0ff">RUNI // VOICE AUDITION</h2>'
-        f'<p style="color:#5f6a97">Sample: “{sample}”</p>' + "".join(blocks) + "</body>"
+        f'<p style="color:#5f6a97">Sample: “{sample}”</p>' + "".join(blocks) + ru_block + "</body>"
     )
