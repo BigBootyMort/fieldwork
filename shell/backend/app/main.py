@@ -128,6 +128,7 @@ class TTSRequest(BaseModel):
     text: str
     voice: str | None = None
     accent: str | None = None           # e.g. "ru" for a Russian accent
+    strength: str | None = None         # accent intensity: light | medium | heavy
     length_scale: float | None = None   # >1 slower, <1 faster
 
 
@@ -173,12 +174,14 @@ async def voice_tts_post(req: TTSRequest):
 
 @app.get("/api/voice/tts")
 async def voice_tts_get(text: str, voice: str | None = None, accent: str | None = None,
-                        length_scale: float | None = None):
+                        strength: str | None = None, length_scale: float | None = None):
     payload: dict = {"text": text}
     if voice:
         payload["voice"] = voice
     if accent:
         payload["accent"] = accent
+    if strength:
+        payload["strength"] = strength
     if length_scale:
         payload["length_scale"] = length_scale
     return await _piper_tts(payload)

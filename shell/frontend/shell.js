@@ -130,8 +130,9 @@
             // keeps talking even when the voice containers are down.
             //   Shell.speak(text[, {voice, length_scale}])  → speak
             //   Shell.speak(null)                           → stop
-            const VOICE  = 'en_GB-alba-medium';   // British-female, composed — Runi
-            const ACCENT = 'ru';                  // Runi's Russian accent (null = clean)
+            const VOICE    = 'en_GB-alba-medium'; // clean-English fallback voice
+            const ACCENT   = 'ru';                // Runi's Russian accent (null = clean)
+            const STRENGTH = 'medium';            // light | medium | heavy
             let ac = null, curSrc = null;
 
             // ── browser-TTS fallback (previous behaviour, trimmed) ──
@@ -182,6 +183,7 @@
                             text: String(text),
                             voice: opts.voice || VOICE,
                             accent: opts.accent !== undefined ? opts.accent : ACCENT,
+                            strength: opts.strength || STRENGTH,
                             length_scale: opts.length_scale,
                         }),
                     });

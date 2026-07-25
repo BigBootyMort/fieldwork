@@ -79,34 +79,38 @@ def _phonemize(text: str, espeak_voice: str) -> str:
     return " ".join(line.strip() for line in proc.stdout.splitlines() if line.strip())
 
 
-# Russian-accent phoneme substitutions on English IPA.
-_RU_SUB = {
-    "w": "v",     # world → vorld
-    "θ": "t",     # think → tink   (no θ in Russian)
-    "ð": "d",     # this → dis
-    "h": "x",     # hello → khello (Russian h is velar χ; espeak uses 'x')
-    "ɹ": "r",     # English approximant r → trilled r
-    "æ": "ɛ",     # cat → ket
-    "ŋ": "n",     # -ing → -in
-    "ɡ": "ɡ",
+# Russian-accent phoneme substitutions, tiered so the accent can be dialed for
+# intelligibility. The Russian *voice* (irina) already carries most of the
+# character; these just push the consonants. Vowel shifts + final devoicing are
+# the least intelligible, so they only kick in at "heavy".
+_RU_CORE = {          # iconic + still very intelligible
+    "w": "v",         # world → vorld
+    "θ": "t",         # think → tink
+    "ð": "d",         # this → dis
+    "ɹ": "r",         # English r → trilled r
 }
-# Final devoicing (Russian devoices word-final voiced obstruents).
-_DEVOICE = {"b": "p", "d": "t", "ɡ": "k", "v": "f", "z": "s", "ʒ": "ʃ", "dʒ": "tʃ"}
-_VOWELS = set("aeiouɪʊɛɔæəɐɑɒʌɜɘɵiːuːɔːɑːɜː")
+_RU_MEDIUM = {**_RU_CORE, "h": "x"}                 # + hello → khello
+_RU_HEAVY = {**_RU_MEDIUM, "æ": "ɛ", "ŋ": "n"}      # + vowel shift, -ing → -in
+_RU_LEVELS = {"light": _RU_CORE, "medium": _RU_MEDIUM, "heavy": _RU_HEAVY}
+
+# Word-final devoicing (Russian) — only at "heavy"; it's the biggest hit to clarity.
+_DEVOICE = {"b": "p", "d": "t", "ɡ": "k", "v": "f", "z": "s", "ʒ": "ʃ"}
 
 
-def _russify(ipa: str) -> str:
+def _russify(ipa: str, strength: str = "medium") -> str:
+    sub = _RU_LEVELS.get(strength, _RU_MEDIUM)
+    devoice = strength == "heavy"
     out_words = []
     for word in ipa.split(" "):
-        chars = [_RU_SUB.get(c, c) for c in word]
-        # devoice the final consonant of the word
-        for i in range(len(chars) - 1, -1, -1):
-            c = chars[i]
-            if c in "ˈˌːˑ .,!?;:":   # skip stress/length/punct markers
-                continue
-            if c in _DEVOICE:
-                chars[i] = _DEVOICE[c]
-            break
+        chars = [sub.get(c, c) for c in word]
+        if devoice:
+            for i in range(len(chars) - 1, -1, -1):
+                c = chars[i]
+                if c in "ˈˌːˑ .,!?;:":   # skip stress/length/punct markers
+                    continue
+                if c in _DEVOICE:
+                    chars[i] = _DEVOICE[c]
+                break
         out_words.append("".join(chars))
     return " ".join(out_words)
 
@@ -129,7 +133,8 @@ _ACCENT_MODEL = {"ru": "ru_RU-irina-medium"}
 _ACCENT_PHONEME_VOICE = "en-gb-x-rp"
 
 
-def _synth_accent(text: str, voice: str, accent: str, length_scale: float | None) -> bytes:
+def _synth_accent(text: str, voice: str, accent: str, length_scale: float | None,
+                  strength: str = "medium") -> bytes:
     # Use the accent's native acoustic model if installed; else fall back to
     # applying rules on the requested English voice (still better than nothing).
     model = _ACCENT_MODEL.get(accent)
@@ -139,14 +144,15 @@ def _synth_accent(text: str, voice: str, accent: str, length_scale: float | None
     pim = cfg["phoneme_id_map"]
     ipa = _phonemize(text, _ACCENT_PHONEME_VOICE)   # English pronunciation…
     if accent == "ru":
-        ipa = _russify(ipa)                          # …rewritten to Russian sounds
+        ipa = _russify(ipa, strength)                # …rewritten to Russian sounds
     ids = _ids(ipa, pim)
 
     inf = cfg.get("inference", {})
+    # Slightly slower by default for the accent — a careful non-native cadence
+    # reads clearer than full speed.
+    ls = length_scale or 1.1
     scales = np.array(
-        [inf.get("noise_scale", 0.667),
-         length_scale or inf.get("length_scale", 1.0),
-         inf.get("noise_w", 0.8)],
+        [inf.get("noise_scale", 0.667), ls, inf.get("noise_w", 0.8)],
         dtype=np.float32,
     )
     inputs = {
@@ -171,12 +177,13 @@ def _synth_accent(text: str, voice: str, accent: str, length_scale: float | None
     return buf.getvalue()
 
 
-def _synth(text: str, voice: str | None, accent: str | None, length_scale: float | None) -> bytes:
+def _synth(text: str, voice: str | None, accent: str | None, length_scale: float | None,
+           strength: str = "medium") -> bytes:
     voice = voice or DEFAULT
     if not os.path.exists(os.path.join(VOICES_DIR, voice + ".onnx")):
         raise HTTPException(400, f"voice not installed: {voice}")
     if accent and accent != "none":
-        return _synth_accent(text, voice, accent, length_scale)
+        return _synth_accent(text, voice, accent, length_scale, strength)
     return _synth_clean(text, voice, length_scale)
 
 
@@ -192,17 +199,21 @@ class TTSRequest(BaseModel):
     text: str
     voice: str | None = None
     accent: str | None = None
+    strength: str | None = None          # light | medium | heavy
     length_scale: float | None = None
 
 
 @app.post("/tts")
 def tts_post(req: TTSRequest):
-    return Response(_synth(req.text, req.voice, req.accent, req.length_scale), media_type="audio/wav")
+    return Response(_synth(req.text, req.voice, req.accent, req.length_scale,
+                           req.strength or "medium"), media_type="audio/wav")
 
 
 @app.get("/tts")
-def tts_get(text: str, voice: str | None = None, accent: str | None = None, length_scale: float | None = None):
-    return Response(_synth(text, voice, accent, length_scale), media_type="audio/wav")
+def tts_get(text: str, voice: str | None = None, accent: str | None = None,
+            strength: str | None = None, length_scale: float | None = None):
+    return Response(_synth(text, voice, accent, length_scale, strength or "medium"),
+                    media_type="audio/wav")
 
 
 @app.get("/audition", response_class=HTMLResponse)
@@ -218,11 +229,18 @@ def audition():
             f'<span style="color:#5f6a97">· clean English</span><br>'
             f'<audio controls preload="none" src="/tts?voice={v}&text={q}"></audio></div>'
         )
+    ru_rows = "".join(
+        f'<div style="margin:8px 0"><span style="color:#5f6a97">{lvl}'
+        f'{" — default" if lvl=="medium" else ""}</span><br>'
+        f'<audio controls preload="none" src="/tts?accent=ru&strength={lvl}&text={q}"></audio></div>'
+        for lvl in ("light", "medium", "heavy")
+    )
     ru_block = (
         '<div style="margin:20px 0;padding-top:14px;border-top:1px solid #1b2348">'
         '<b style="color:#ff2e97">Russian accent</b> '
-        '<span style="color:#5f6a97">· English words, Russian voice (irina) + accent rules</span><br>'
-        f'<audio controls preload="none" src="/tts?accent=ru&text={q}"></audio></div>'
+        '<span style="color:#5f6a97">· English words, Russian voice (irina). '
+        'light = w→v/th; medium = +kh; heavy = +vowels/devoicing</span>'
+        + ru_rows + '</div>'
     )
     return (
         '<body style="background:#04050a;color:#d7e3ff;font-family:monospace;padding:28px;max-width:680px">'
