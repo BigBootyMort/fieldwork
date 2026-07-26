@@ -359,12 +359,14 @@
 #runi-face {
     width: 116px;
     height: 116px;
+    aspect-ratio: 1;               /* keep the box square so the core stays a circle */
     flex-shrink: 0;
     background: radial-gradient(60% 60% at 50% 50%, rgba(24,224,255,0.06), transparent 75%);
     border: 1px solid var(--border);
     border-top: 2px solid rgba(24,224,255,0.35);
     clip-path: polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%);
 }
+.runi-meta { display: flex; flex-direction: column; gap: 0.5rem; }
 #runi-id {
     font-family: var(--font-mono, monospace);
     font-size: 0.62rem;
@@ -373,6 +375,8 @@
     color: var(--text-dim);
 }
 #runi-id #runi-status { color: var(--primary); }
+.runi-ctrls { display: flex; gap: 0.3rem; }
+.runi-ctrls .news-icon-btn { font-size: 0.8rem; padding: 2px 7px; }
 
 /* Chat log — grows up to ~40% of the viewport, then scrolls */
 #news-assistant-log {

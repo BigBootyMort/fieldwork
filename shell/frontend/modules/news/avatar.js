@@ -38,6 +38,14 @@ window.RuniAvatar = (function () {
     function frame(now) {
         raf = requestAnimationFrame(frame);
         if (!cx) return;
+        // self-heal: keep the drawing buffer matched to the on-screen box so the
+        // core stays a circle (not a squished ellipse) regardless of layout timing.
+        const dpr = Math.min(2, window.devicePixelRatio || 1);
+        const bw = Math.round(Math.max(1, cv.clientWidth) * dpr);
+        const bh = Math.round(Math.max(1, cv.clientHeight) * dpr);
+        if (bw > 2 && (cv.width !== bw || cv.height !== bh)) {
+            cv.width = bw; cv.height = bh; W = bw; H = bh; CX = bw / 2; CY = bh / 2; R = Math.min(bw, bh) / 2;
+        }
         const [r, g, b] = COL[state] || COL.idle;
         const t = now / 1000;
         const bins = readBins();

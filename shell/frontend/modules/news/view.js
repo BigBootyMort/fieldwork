@@ -152,6 +152,13 @@ window.NewsView = (function () {
         state.map.on('mouseout', _closeAllTooltips);
 
         await renderChoropleth();
+        // The GeoJSON is projected against Leaflet's cached size at add-time; if the
+        // container was still 0-height then, the map collapses to a line and
+        // invalidateSize alone won't re-project existing paths. So re-measure AND
+        // re-render a few times as the layout settles (uses cached geo+heat, cheap).
+        [150, 600, 1400].forEach(ms => setTimeout(() => {
+            try { state.map.invalidateSize(); renderChoropleth(); } catch (e) {}
+        }, ms));
     }
 
     /** Close every tooltip currently open on the countries GeoJSON layer. */
@@ -167,15 +174,14 @@ window.NewsView = (function () {
     // NOTE: the datasets/geo-countries dataset switched from ISO_A2 to
     //       ISO3166-1-Alpha-2 at some point — check that first.
     function isoFromFeature(props) {
-        return props['ISO3166-1-Alpha-2']   // current geo-countries format
-            || props.ISO_A2                  // old Natural Earth format
-            || props.iso_a2
-            || props.ISO_A2_EH              // Natural Earth extended
-            || props.ISO2
-            || props.iso2
-            || props['iso-a2']              // Highcharts world.geo.json (vendored)
-            || props['hc-a2']
-            || null;
+        // Natural Earth uses "-99" for disputed/unassigned (France, Norway…) with the
+        // real code in ISO_A2_EH — so skip "-99"/blank and take the first real code.
+        const cands = [
+            props['ISO3166-1-Alpha-2'], props.ISO_A2, props.iso_a2,
+            props.ISO_A2_EH, props.ISO2, props.iso2, props['iso-a2'], props['hc-a2'],
+        ];
+        for (const c of cands) { if (c && c !== '-99') return c; }
+        return null;
     }
 
     // Compute the base (non-hover) style for a GeoJSON feature.
@@ -186,11 +192,13 @@ window.NewsView = (function () {
         const score = entry?.hot_score || 0;
         const topic = entry?.dominant_topic || 'world';
         const sel   = state.selectedISO && iso === state.selectedISO;
+        // No tile basemap — so every country gets a visible dark fill (the world
+        // map backdrop); countries with news light up with their topic colour on top.
         return {
-            fillColor:   entry ? colourForTopic(topic) : 'transparent',
-            fillOpacity: entry ? opacityForScore(score) : 0,
-            weight:      sel ? 2.5 : 0.5,
-            color:       sel ? '#38bdf8' : 'rgba(120,140,170,0.25)',
+            fillColor:   entry ? colourForTopic(topic) : '#0e1526',
+            fillOpacity: entry ? Math.max(0.35, opacityForScore(score)) : 1,
+            weight:      sel ? 2.5 : 0.6,
+            color:       sel ? '#38bdf8' : 'rgba(120,150,190,0.45)',
         };
     }
 
@@ -727,16 +735,27 @@ window.NewsView = (function () {
         stopBtn.disabled     = !active;
     }
 
+    function _updateRuniCtrls() {
+        const p = document.getElementById('runi-pause');
+        const s = document.getElementById('runi-stop');
+        const active = state.ttsState === 'playing' || state.ttsState === 'paused';
+        if (p) { p.disabled = state.ttsState !== 'playing'; }
+        if (s) { s.disabled = !active; }
+    }
+
     function speak(text) {
         if (!text) return;
         // Runi's voice is now the shared Shell.speak → local Piper neural TTS
         // (with a browser-speechSynthesis fallback baked into Shell.speak itself).
+        state.lastSpoken = text;                    // for the ▶ replay button
         state.ttsState = 'playing';
         _updateBriefControls();
+        _updateRuniCtrls();
         window.RuniAvatar?.setState('thinking');   // keep 'thinking' while TTS synthesizes (masks the lag)
         const done = () => {
             state.ttsState = 'idle';
             _updateBriefControls();
+            _updateRuniCtrls();
             window.RuniAvatar?.setState('idle');
         };
         if (window.Shell && Shell.speak) {
@@ -1146,12 +1165,32 @@ window.NewsView = (function () {
             });
         }
 
-        // Runi avatar — the dot-face presence in the assistant strip
+        // Runi avatar — the reactive AI-core presence in the assistant strip
         const faceEl = document.getElementById('runi-face');
         if (faceEl && window.RuniAvatar) {
             window.RuniAvatar.mount(faceEl);
             window.RuniAvatar.setState('idle');
         }
+
+        // Runi voice controls: ▶ replay/resume · ⏸ pause · ⏹ stop
+        document.getElementById('runi-play')?.addEventListener('click', () => {
+            if (state.ttsState === 'paused') {
+                Shell.speak?.resume?.(); state.ttsState = 'playing'; _updateRuniCtrls();
+                window.RuniAvatar?.setState('speaking');
+            } else if (state.lastSpoken) {
+                speak(state.lastSpoken);
+            }
+        });
+        document.getElementById('runi-pause')?.addEventListener('click', () => {
+            if (state.ttsState === 'playing') {
+                Shell.speak?.pause?.(); state.ttsState = 'paused'; _updateRuniCtrls();
+                window.RuniAvatar?.setState('idle');
+            }
+        });
+        document.getElementById('runi-stop')?.addEventListener('click', () => {
+            Shell.speak?.stop?.(); state.ttsState = 'idle'; _updateRuniCtrls();
+            window.RuniAvatar?.setState('idle');
+        });
 
         // Initial render: load map, heat + articles, and check LLM readiness
         await initMap();
@@ -1174,6 +1213,7 @@ window.NewsView = (function () {
         if ('speechSynthesis' in window) speechSynthesis.cancel();
         window.Shell?.speak?.stop?.();
         window.RuniAvatar?.unmount();
+        if (state._mapRO) { try { state._mapRO.disconnect(); } catch (e) {} state._mapRO = null; }
         if (state.micRec) { try { state.micRec.stop(); } catch (e) {} state.micRec = null; }
         if (state.map) {
             state.map.remove();

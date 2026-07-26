@@ -143,7 +143,14 @@
     <div id="news-assistant">
         <div id="runi-presence">
             <canvas id="runi-face"></canvas>
-            <div id="runi-id">RUNI <span id="runi-status">IDLE</span></div>
+            <div class="runi-meta">
+                <div id="runi-id">RUNI <span id="runi-status">IDLE</span></div>
+                <div class="runi-ctrls">
+                    <button id="runi-play"  class="news-icon-btn" title="Replay / resume">▶</button>
+                    <button id="runi-pause" class="news-icon-btn" title="Pause" disabled>⏸</button>
+                    <button id="runi-stop"  class="news-icon-btn" title="Stop"  disabled>⏹</button>
+                </div>
+            </div>
         </div>
         <div id="news-assistant-log"></div>
         <form id="news-assistant-form" autocomplete="off">
