@@ -166,44 +166,72 @@
                 } catch (e) { console.warn('Runi fallback TTS failed', e); if (onend) onend(); }
             }
 
+            let seq = 0;                       // bumps to cancel any in-flight speech
             function stop() {
+                seq++;
                 try { if (curSrc) { curSrc.onended = null; curSrc.stop(); curSrc = null; } } catch (e) {}
                 try { speechSynthesis.cancel(); } catch (e) {}
                 Shell.voiceAnalyser = null;
+            }
+
+            // Split into sentence-ish chunks (~240 chars) so the first bit plays while
+            // the rest still synthesize — cuts the "text now, voice a few seconds later" lag.
+            function chunkText(text) {
+                const parts = String(text).replace(/\s+/g, ' ').trim().match(/[^.!?…]+[.!?…]*/g) || [String(text)];
+                const out = []; let buf = '';
+                for (const p of parts) { if (buf && (buf + p).length > 240) { out.push(buf.trim()); buf = p; } else buf += p; }
+                if (buf.trim()) out.push(buf.trim());
+                return out.filter(Boolean);
+            }
+
+            async function ttsBuf(text, mySeq, params) {
+                const r = await fetch('/api/voice/tts', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text, ...params }),
+                });
+                if (!r.ok) throw new Error('tts ' + r.status);
+                const bytes = await r.arrayBuffer();
+                if (mySeq !== seq) return null;
+                return await ac.decodeAudioData(bytes);
             }
 
             async function speak(text, opts) {
                 stop();
                 if (!text) return;               // Shell.speak(null) → stop
                 opts = opts || {};
-                try {
-                    const r = await fetch('/api/voice/tts', {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            text: String(text),
-                            voice: opts.voice || VOICE,
-                            accent: opts.accent !== undefined ? opts.accent : ACCENT,
-                            strength: opts.strength || STRENGTH,
-                            length_scale: opts.length_scale,
-                        }),
+                const mySeq = seq;
+                const params = {
+                    voice: opts.voice || VOICE,
+                    accent: opts.accent !== undefined ? opts.accent : ACCENT,
+                    strength: opts.strength || STRENGTH,
+                    length_scale: opts.length_scale,
+                };
+                ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+                if (ac.state === 'suspended') { try { await ac.resume(); } catch (e) {} }
+                const chunks = chunkText(text);
+                const an = ac.createAnalyser(); an.fftSize = 256; an.connect(ac.destination);
+                Shell.voiceAnalyser = an;        // avatar reads this while she speaks
+                let started = false;
+                let nextP = ttsBuf(chunks[0], mySeq, params).catch(() => null);
+                for (let i = 0; i < chunks.length; i++) {
+                    let buf; try { buf = await nextP; } catch (e) { buf = null; }
+                    if (mySeq !== seq) return;                                  // cancelled
+                    if (i + 1 < chunks.length) nextP = ttsBuf(chunks[i + 1], mySeq, params).catch(() => null);
+                    if (!buf) {
+                        if (i === 0) { if (opts.onstart) opts.onstart(); _fallback(String(text), opts.onend); return; }
+                        continue;
+                    }
+                    await new Promise(res => {
+                        if (mySeq !== seq) { res(); return; }
+                        const src = ac.createBufferSource(); src.buffer = buf; src.connect(an);
+                        src.onended = () => { if (curSrc === src) curSrc = null; res(); };
+                        curSrc = src;
+                        if (!started) { started = true; if (opts.onstart) opts.onstart(); }  // avatar → speaking on first audio
+                        src.start();
                     });
-                    if (!r.ok) throw new Error('tts ' + r.status);
-                    const bytes = await r.arrayBuffer();
-                    ac = ac || new (window.AudioContext || window.webkitAudioContext)();
-                    if (ac.state === 'suspended') { try { await ac.resume(); } catch (e) {} }
-                    const buf = await ac.decodeAudioData(bytes);
-                    const src = ac.createBufferSource(); src.buffer = buf;
-                    const an = ac.createAnalyser(); an.fftSize = 256;
-                    src.connect(an); an.connect(ac.destination);
-                    Shell.voiceAnalyser = an;          // avatar mouth reads this
-                    src.onended = () => {
-                        if (curSrc === src) { curSrc = null; Shell.voiceAnalyser = null; if (opts.onend) opts.onend(); }
-                    };
-                    src.start(); curSrc = src;
-                } catch (e) {
-                    console.warn('Runi Piper TTS unavailable, using browser voice:', e.message);
-                    _fallback(String(text), opts.onend);
+                    if (mySeq !== seq) return;
                 }
+                if (mySeq === seq) { Shell.voiceAnalyser = null; if (opts.onend) opts.onend(); }
             }
             speak.stop   = stop;
             speak.pause  = () => { try { if (ac && ac.state === 'running')   ac.suspend(); } catch (e) {} try { speechSynthesis.pause();  } catch (e) {} };

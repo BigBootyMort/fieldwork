@@ -1,7 +1,7 @@
 /*
- * Runi avatar — a dot-matrix "pin-screen" face rendered on a canvas.
- * States: idle (breathe/blink) · listening (reacts to Shell.micAnalyser) ·
- *         thinking (scatter + thought-graph) · speaking (mouth ← Shell.voiceAnalyser).
+ * Runi avatar — a generative, audio-reactive AI core (canvas).
+ * States: idle · listening (reacts to Shell.micAnalyser) · thinking (swirl +
+ * mindmap) · speaking (spectrum + shockwaves ← Shell.voiceAnalyser).
  *
  * window.RuniAvatar.mount(canvasEl) / .setState(name) / .unmount()
  */
@@ -14,119 +14,132 @@ window.RuniAvatar = (function () {
         thinking:  [198, 255, 46],
         speaking:  [255, 46, 151],
     };
-
+    const N = 72;                         // spectrum bars (symmetric)
     let cv, cx, raf = null, state = 'idle';
-    let W = 0, H = 0, dots = [], thoughts = [], amp = 0;
+    let W = 0, H = 0, CX = 0, CY = 0, R = 0;
+    let spec = new Float32Array(N), amp = 0, rot = 0, rot2 = 0, spin = 0;
+    let nodes = [], pulses = [], ripples = [], pulseAcc = 0, ripAcc = 0;
 
-    function buildDots() {
-        dots = [];
-        const RX = W * 0.30, RY = H * 0.40, gap = Math.max(5, W / 40);
-        for (let y = -RY; y <= RY; y += gap) {
-            for (let x = -RX; x <= RX; x += gap) {
-                const u = x / RX, v = y / RY;
-                if (u * u + v * v > 1.04) continue;
-                dots.push({ x, y, u, v, base: Math.sqrt(Math.max(0, 1 - u * u - v * v)) });
-            }
-        }
+    function build() {
+        nodes = Array.from({ length: 11 }, () => ({
+            a: Math.random() * 6.283, va: (Math.random() - 0.5) * 0.003,
+            r: 0.46 + Math.random() * 0.26, rph: Math.random() * 6.283, flare: 0,
+        }));
+        pulses = []; ripples = [];
     }
 
-    // Face heightfield: brow ridge, nose, eye sockets (fill on blink), mouth (opens on speak).
-    function feature(u, v, blink, mouthOpen) {
-        let e = 0;
-        e += Math.max(0, 0.35 - Math.abs(v + 0.28)) * 0.5 * Math.max(0, 1 - Math.abs(u) * 1.1);
-        e += Math.max(0, 0.40 - Math.abs(u)) * Math.max(0, 0.45 - Math.abs(v - 0.02)) * 0.9;
-        const eye = Math.min(
-            Math.hypot((u + 0.34) / 0.9, (v + 0.12) / 0.7),
-            Math.hypot((u - 0.34) / 0.9, (v + 0.12) / 0.7));
-        if (eye < 0.22) e -= (0.22 - eye) * 1.6 * (1 - blink);
-        const md = Math.hypot(u / 0.95, (v - 0.5) / 0.42);
-        if (md < 0.42) e -= (0.42 - md) * (0.6 + mouthOpen * 2.4);
-        return e;
-    }
-
-    function readAmp() {
-        let an = null;
-        if (state === 'speaking') an = window.Shell && Shell.voiceAnalyser;
-        else if (state === 'listening') an = window.Shell && Shell.micAnalyser;
-        if (an) {
-            const d = new Uint8Array(an.frequencyBinCount);
-            an.getByteFrequencyData(d);
-            let s = 0; for (let i = 0; i < d.length; i++) s += d[i];
-            return Math.min(1, (s / d.length) / 70);
-        }
-        // gentle simulated life when there's no live signal
-        if (state === 'listening') return 0.18 + 0.14 * Math.abs(Math.sin(performance.now() * 0.006));
-        return 0;
-    }
-
-    function stepThoughts(now, cxp, cyp) {
-        if ((state === 'thinking' || state === 'speaking') && thoughts.length < 7 && Math.random() < 0.05) {
-            const a = Math.random() * 6.28, r = W * 0.4 + Math.random() * W * 0.15;
-            thoughts.push({ x: cxp + Math.cos(a) * r, y: cyp + Math.sin(a) * r * 0.7, born: now,
-                col: [[24,224,255],[198,255,46],[255,46,151],[0,255,156]][Math.random() * 4 | 0],
-                r: 2 + Math.random() * 3 });
-        }
-        thoughts = thoughts.filter(n => (now - n.born < 2600) || state === 'thinking' || state === 'speaking');
-    }
-    function drawThoughts(now, cxp, cyp) {
-        for (const n of thoughts) {
-            const age = now - n.born, life = Math.min(1, age / 260);
-            const fade = state === 'idle' ? Math.max(0, 1 - (age - 600) / 2000) : 1;
-            if (fade <= 0) continue;
-            const [r, g, b] = n.col;
-            cx.globalAlpha = 0.20 * fade; cx.strokeStyle = `rgb(${r},${g},${b})`; cx.lineWidth = 1;
-            cx.beginPath(); cx.moveTo(cxp, cyp); cx.lineTo(n.x, n.y); cx.stroke();
-            cx.globalAlpha = 0.9 * fade; cx.fillStyle = `rgb(${r},${g},${b})`;
-            cx.beginPath(); cx.arc(n.x, n.y, n.r * life, 0, 7); cx.fill();
-        }
-        cx.globalAlpha = 1;
+    function readBins() {
+        const an = state === 'speaking' ? (window.Shell && Shell.voiceAnalyser)
+                 : state === 'listening' ? (window.Shell && Shell.micAnalyser) : null;
+        if (an) { const d = new Uint8Array(an.frequencyBinCount); an.getByteFrequencyData(d); return d; }
+        return null;
     }
 
     function frame(now) {
         raf = requestAnimationFrame(frame);
         if (!cx) return;
-        cx.clearRect(0, 0, W, H);
         const [r, g, b] = COL[state] || COL.idle;
-        const blink = (state !== 'speaking' && (now % 3800) > 3680) ? 1 : 0;
-        amp += (readAmp() - amp) * 0.35;
-        const scatter = state === 'thinking' ? 1 : 0;
-        const cxp = W / 2, cyp = H * 0.46;
+        const t = now / 1000;
+        const bins = readBins();
 
-        for (const d of dots) {
-            const ripple = state === 'listening'
-                ? Math.sin(Math.hypot(d.u, d.v) * 4 - now * 0.006) * amp * 0.5 : 0;
-            // visible ambient life at rest: a breathing swell + a slow radial shimmer
-            const breathe = Math.sin(now * 0.0022 + d.v * 2.4) * 0.06
-                          + Math.sin(now * 0.004 - Math.hypot(d.u, d.v) * 3) * 0.02;
-            const noise = scatter
-                ? Math.sin(now * 0.004 + d.x * 0.05) * Math.cos(now * 0.003 + d.y * 0.05) * 0.5 : 0;
-            const mouthOpen = state === 'speaking' ? amp : 0;
-            const e = (d.base + feature(d.u, d.v, blink, mouthOpen) + breathe + ripple) * (1 - scatter * 0.5);
-            const sx = cxp + d.x + noise * (W * 0.05) * Math.sin(d.x);
-            const sy = cyp + d.y + noise * (W * 0.05) * Math.cos(d.y) - e * (H * 0.06);
-            const el = Math.max(0.04, e);
-            const rad = Math.max(0.6, 0.7 + el * (W * 0.008));
-            const bright = Math.max(0.06, Math.min(1, el * 0.95));
-            cx.fillStyle = `rgba(${r},${g},${b},${bright})`;
-            cx.beginPath(); cx.arc(sx, sy, rad, 0, 7); cx.fill();
+        // ---- drive spectrum ----
+        let overall = 0;
+        for (let i = 0; i < N; i++) {
+            const half = i < N / 2 ? i : (N - 1 - i);
+            let v;
+            if (bins) v = bins[2 + half * 2] / 255;
+            else if (state === 'speaking')  v = 0.15 + 0.15 * Math.abs(Math.sin(half * 0.6 + now * 0.02));
+            else if (state === 'listening') v = 0.12 + 0.10 * Math.abs(Math.sin(half * 0.5 + now * 0.006));
+            else if (state === 'thinking')  v = 0.18 + 0.16 * Math.abs(Math.sin(half * 0.9 - now * 0.01)) + 0.1 * Math.random();
+            else v = 0.06 + 0.05 * Math.abs(Math.sin(half * 0.4 + now * 0.0018));
+            spec[i] += (v - spec[i]) * 0.4; overall += spec[i];
         }
-        stepThoughts(now, cxp, cyp);
-        drawThoughts(now, cxp, cyp);
+        overall /= N; amp += (overall - amp) * 0.3;
+
+        cx.clearRect(0, 0, W, H);
+        cx.save(); cx.translate(CX, CY);
+        rot += 0.0016 + (state === 'thinking' ? 0.006 : 0);
+        rot2 -= 0.0026 + (state === 'thinking' ? 0.004 : 0);
+        spin += 0.02;
+
+        const r0 = R * 0.30, maxLen = R * 0.34 * (state === 'speaking' ? 1.25 : 1);
+
+        // ---- HUD rings + ticks ----
+        cx.lineWidth = Math.max(1, R * 0.012);
+        arc(R * 0.9, rot, 0.15, 1.0, `rgba(${r},${g},${b},0.5)`);
+        arc(R * 0.9, rot + Math.PI, 0.15, 1.0, `rgba(${r},${g},${b},0.5)`);
+        arc(R * 0.82, rot2, 0.55, 0.9, `rgba(${r},${g},${b},0.22)`);
+        cx.strokeStyle = `rgba(${r},${g},${b},0.28)`; cx.lineWidth = 1;
+        for (let i = 0; i < 48; i++) { const a = i / 48 * 6.283 + rot * 0.4, ri = R * 0.72, ro = ri + (i % 4 === 0 ? R * 0.05 : R * 0.025);
+            cx.beginPath(); cx.moveTo(Math.cos(a) * ri, Math.sin(a) * ri); cx.lineTo(Math.cos(a) * ro, Math.sin(a) * ro); cx.stroke(); }
+
+        // ---- mindmap ----
+        const swirl = state === 'thinking' ? 0.011 : state === 'speaking' ? 0.005 : 0.0018;
+        const np = [];
+        for (const n of nodes) { n.a += n.va + swirl; const rr = R * n.r * (1 + 0.04 * Math.sin(t * 0.9 + n.rph));
+            np.push([Math.cos(n.a) * rr, Math.sin(n.a) * rr]); n.flare *= 0.92; }
+        for (let i = 0; i < nodes.length; i++) { const p = np[i];
+            cx.strokeStyle = `rgba(${r},${g},${b},0.10)`; cx.lineWidth = 1;
+            cx.beginPath(); cx.moveTo(0, 0); cx.lineTo(p[0], p[1]); cx.stroke();
+            let best = -1, bd = 1e9; for (let j = i + 1; j < nodes.length; j++) { const dx = np[j][0] - p[0], dy = np[j][1] - p[1], d = dx * dx + dy * dy; if (d < bd) { bd = d; best = j; } }
+            if (best >= 0 && bd < (R * 0.46) * (R * 0.46)) { cx.strokeStyle = `rgba(${r},${g},${b},0.07)`;
+                cx.beginPath(); cx.moveTo(p[0], p[1]); cx.lineTo(np[best][0], np[best][1]); cx.stroke(); } }
+        pulseAcc += state === 'thinking' ? 0.10 : state === 'speaking' ? (0.05 + amp * 0.8) : state === 'listening' ? (0.02 + amp * 0.4) : 0.012;
+        while (pulseAcc >= 1) { pulseAcc -= 1; pulses.push({ ni: Math.random() * nodes.length | 0, t: 0, sp: 0.028 + Math.random() * 0.03 }); }
+        cx.shadowColor = `rgba(${r},${g},${b},1)`;
+        for (let k = pulses.length - 1; k >= 0; k--) { const p = pulses[k]; p.t += p.sp;
+            if (p.t >= 1) { nodes[p.ni].flare = 1; pulses.splice(k, 1); continue; }
+            const q = np[p.ni]; cx.shadowBlur = R * 0.06; cx.fillStyle = `rgba(${r},${g},${b},${(1 - p.t) * 0.95})`;
+            cx.beginPath(); cx.arc(q[0] * p.t, q[1] * p.t, Math.max(1.4, R * 0.018), 0, 6.283); cx.fill(); }
+        for (let i = 0; i < nodes.length; i++) { const p = np[i], fl = nodes[i].flare;
+            cx.shadowBlur = R * 0.05 + fl * R * 0.12; cx.fillStyle = `rgba(${r},${g},${b},${0.4 + fl * 0.6})`;
+            cx.beginPath(); cx.arc(p[0], p[1], Math.max(1.4, R * 0.017) + fl * R * 0.02, 0, 6.283); cx.fill(); }
+        cx.shadowBlur = 0;
+
+        // ---- speaking shockwaves ----
+        if (state === 'speaking') { ripAcc += 0.05 + amp * 0.5; while (ripAcc >= 1) { ripAcc -= 1; if (amp > 0.14) ripples.push({ born: now }); } }
+        for (let k = ripples.length - 1; k >= 0; k--) { const age = (now - ripples[k].born) / 850; if (age >= 1) { ripples.splice(k, 1); continue; }
+            cx.strokeStyle = `rgba(${r},${g},${b},${(1 - age) * 0.4})`; cx.lineWidth = Math.max(1, R * 0.015);
+            cx.beginPath(); cx.arc(0, 0, R * 0.30 + age * R * 0.62, 0, 6.283); cx.stroke(); }
+
+        // ---- radial spectrum ----
+        cx.lineCap = 'round';
+        for (let i = 0; i < N; i++) { const a = i / N * 6.283 + spin * 0.15, len = r0 + spec[i] * maxLen;
+            cx.strokeStyle = `rgba(${r},${g},${b},${0.35 + spec[i] * 0.65})`;
+            cx.lineWidth = Math.max(1.6, R * 0.026); cx.shadowColor = `rgba(${r},${g},${b},0.9)`; cx.shadowBlur = R * 0.05 + spec[i] * R * 0.1;
+            cx.beginPath(); cx.moveTo(Math.cos(a) * r0, Math.sin(a) * r0); cx.lineTo(Math.cos(a) * len, Math.sin(a) * len); cx.stroke(); }
+        cx.shadowBlur = 0;
+        cx.strokeStyle = `rgba(${r},${g},${b},0.5)`; cx.lineWidth = 1.2;
+        cx.beginPath(); cx.arc(0, 0, r0 - R * 0.04, 0, 6.283); cx.stroke();
+
+        // ---- core orb ----
+        const breathe = 1 + 0.06 * Math.sin(t * 1.6) + amp * (state === 'speaking' ? 1.15 : 0.6);
+        const cr = R * 0.15 * breathe;
+        const grd = cx.createRadialGradient(0, 0, 0, 0, 0, cr * 2.4);
+        grd.addColorStop(0, 'rgba(255,255,255,0.9)');
+        grd.addColorStop(0.25, `rgba(${r},${g},${b},0.9)`);
+        grd.addColorStop(1, `rgba(${r},${g},${b},0)`);
+        cx.fillStyle = grd; cx.beginPath(); cx.arc(0, 0, cr * 2.4, 0, 6.283); cx.fill();
+        cx.fillStyle = 'rgba(255,255,255,0.85)'; cx.beginPath(); cx.arc(0, 0, cr * 0.42, 0, 6.283); cx.fill();
+        cx.restore();
+    }
+
+    function arc(rad, start, gap, span, style) {
+        cx.strokeStyle = style; const seg = span * Math.PI;
+        cx.beginPath(); cx.arc(0, 0, rad, start, start + seg); cx.stroke();
+        cx.beginPath(); cx.arc(0, 0, rad, start + seg + gap, start + 2 * seg + gap); cx.stroke();
     }
 
     function resize() {
         if (!cv) return;
         const dpr = Math.min(2, window.devicePixelRatio || 1);
-        W = Math.max(1, cv.clientWidth) * dpr;
-        H = Math.max(1, cv.clientHeight) * dpr;
-        cv.width = W; cv.height = H;
-        buildDots();
+        W = Math.max(1, cv.clientWidth) * dpr; H = Math.max(1, cv.clientHeight) * dpr;
+        cv.width = W; cv.height = H; CX = W / 2; CY = H / 2; R = Math.min(W, H) / 2;
     }
 
     return {
         mount(canvas) {
-            cv = canvas; cx = canvas.getContext('2d');
-            resize();
+            cv = canvas; cx = canvas.getContext('2d'); build(); resize();
             window.addEventListener('resize', resize);
             if (!raf) raf = requestAnimationFrame(frame);
         },
@@ -135,11 +148,6 @@ window.RuniAvatar = (function () {
             const el = document.getElementById('runi-status');
             if (el) el.textContent = s.toUpperCase();
         },
-        unmount() {
-            if (raf) cancelAnimationFrame(raf);
-            raf = null;
-            window.removeEventListener('resize', resize);
-            thoughts = [];
-        },
+        unmount() { if (raf) cancelAnimationFrame(raf); raf = null; window.removeEventListener('resize', resize); },
     };
 })();

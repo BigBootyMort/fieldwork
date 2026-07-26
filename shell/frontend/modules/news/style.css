@@ -357,12 +357,13 @@
     margin-bottom: 0.5rem;
 }
 #runi-face {
-    width: 132px;
-    height: 68px;
+    width: 116px;
+    height: 116px;
     flex-shrink: 0;
-    background: radial-gradient(70% 90% at 50% 40%, rgba(24,224,255,0.05), transparent 70%);
+    background: radial-gradient(60% 60% at 50% 50%, rgba(24,224,255,0.06), transparent 75%);
     border: 1px solid var(--border);
-    border-left: 2px solid rgba(24,224,255,0.35);
+    border-top: 2px solid rgba(24,224,255,0.35);
+    clip-path: polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%);
 }
 #runi-id {
     font-family: var(--font-mono, monospace);

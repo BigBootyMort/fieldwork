@@ -733,16 +733,20 @@ window.NewsView = (function () {
         // (with a browser-speechSynthesis fallback baked into Shell.speak itself).
         state.ttsState = 'playing';
         _updateBriefControls();
-        window.RuniAvatar?.setState('speaking');   // mouth rides Shell.voiceAnalyser
+        window.RuniAvatar?.setState('thinking');   // keep 'thinking' while TTS synthesizes (masks the lag)
         const done = () => {
             state.ttsState = 'idle';
             _updateBriefControls();
             window.RuniAvatar?.setState('idle');
         };
         if (window.Shell && Shell.speak) {
-            Shell.speak(text, { onend: done });
+            Shell.speak(text, {
+                onstart: () => window.RuniAvatar?.setState('speaking'),  // flip only when audio starts
+                onend: done,
+            });
             return;
         }
+        window.RuniAvatar?.setState('speaking');
         // Last-resort inline fallback if the shell helper isn't present.
         if (!('speechSynthesis' in window)) { done(); return; }
         try {
