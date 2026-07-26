@@ -79,6 +79,21 @@ Cross-source intelligence briefings: pulls News nodes + Fieldwork Case/Entity no
 the shared Neo4j, generates structured Markdown via the LLM chain, stores `ReportDoc`
 nodes. Endpoints: `GET /list`, `GET /generate`, `GET /{report_id}`, `DELETE /{report_id}`.
 
+## identity — "Identity Forge"
+
+Synthetic OSINT **cover-persona / sock-puppet** generator for authorized research. Produces
+entirely fictional personas: name/age/gender/nationality/city (locale pools US/GB/DE/FR/ES/BR),
+username + email-handle suggestions, occupation, interests, an AI-written backstory (shared
+`llm_bridge` → Claude, templated fallback), and a locally-generated abstract SVG avatar
+(never a real face). Save/manage personas as `Persona` nodes in Neo4j.
+
+Guardrails: synthetic only (backstory prompt forbids resembling real people); **no**
+government IDs / SSN / financial numbers are generated; avatars are abstract, not photos.
+
+Endpoints: `GET /locales`, `POST /generate` (`{locale?,gender?,age_min,age_max,seed?}`),
+`GET /personas`, `POST /personas` (`{persona,label?}`), `DELETE /personas/{id}`.
+Stores `Persona` nodes.
+
 ## Adding a module (checklist)
 
 1. `shell/backend/app/modules/<id>/__init__.py` with `ModuleManifest` + `init()`.

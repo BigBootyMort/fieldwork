@@ -1,0 +1,34 @@
+<link rel="stylesheet" href="/modules/identity/style.css">
+
+<div id="idf-root">
+  <div id="idf-main">
+    <!-- Forge controls -->
+    <div class="idf-card idf-controls">
+      <div class="idf-title"><span>🎭 IDENTITY FORGE</span>
+        <span class="idf-sub">synthetic cover personas · authorized research only</span></div>
+      <div class="idf-form">
+        <label>Locale
+          <select id="idf-locale"><option value="">Random</option></select>
+        </label>
+        <label>Gender
+          <select id="idf-gender"><option value="">Random</option><option value="f">Female</option><option value="m">Male</option></select>
+        </label>
+        <label>Age
+          <span class="idf-age"><input id="idf-agemin" type="number" min="18" max="90" value="24"> – <input id="idf-agemax" type="number" min="18" max="90" value="45"></span>
+        </label>
+        <button id="idf-generate" class="idf-btn idf-btn-primary">🎲 Forge persona</button>
+      </div>
+      <p class="idf-note">Every persona is <strong>fictional</strong> — never a real person. No government IDs or
+        financial data are generated. For authorized OSINT research cover only.</p>
+    </div>
+
+    <!-- Generated persona -->
+    <div id="idf-persona" class="idf-card" style="display:none"></div>
+  </div>
+
+  <!-- Saved personas -->
+  <aside id="idf-side">
+    <div class="idf-side-head">SAVED PERSONAS <span id="idf-count" class="idf-dim">(0)</span></div>
+    <div id="idf-saved"></div>
+  </aside>
+</div>
