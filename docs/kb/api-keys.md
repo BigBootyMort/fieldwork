@@ -2,11 +2,18 @@
 
 _Last verified: 2026-07-28._
 
-**Finding (2026-07-28):** in the running stack, **only `ANTHROPIC_API_KEY` had a
-value** — every OSINT enrichment key was empty. The orchestrator's fan-out is now
-wide, and the `coverage` block reports which sources came back **blind (no key)**,
-but the actual *data* only shows up once these keys are set. This is the single
-biggest lever on investigation quality.
+**Finding (2026-07-28):** the running stack has **4 keys set** via
+`runtime_api_keys.json` — `SHODAN_API_KEY`, `VIRUSTOTAL_API_KEY`, `ABUSEIPDB_KEY`,
+`ANTHROPIC_API_KEY` — and **every other OSINT enrichment key is empty**. The
+orchestrator's fan-out is now wide, and the `coverage` block reports which sources
+came back **blind (no key)**, but their *data* only shows up once the key is set.
+Filling the free Tier-1 keys below is the single biggest remaining lever on
+investigation quality.
+
+> Check the truly-injected state from inside the app context (a bare
+> `python -c "os.getenv(...)"` shows only compose's empty placeholders, not the keys
+> `runtime_env` injects):
+> `docker exec fieldwork-backend sh -lc 'cd /app/app; python -c "import runtime_env, os; print([k for k,v in {n:os.getenv(n,\"\") for n in [\"SHODAN_API_KEY\",\"GITHUB_TOKEN\"]}.items() if v])"'`
 
 ## Where keys go
 
@@ -38,7 +45,7 @@ won't override a real `.env`/environment value.
 | **urlscan** | `URLSCAN_API_KEY` | urlscan.io free account | domain (more scans, submit) |
 | **IPInfo** | `IPINFO_TOKEN` | ipinfo.io (50k/mo free) | ip |
 | **GreyNoise** | `GREYNOISE_API_KEY` | greynoise.io community tier | ip |
-| **AbuseIPDB** | `ABUSEIPDB_KEY` | abuseipdb.com free tier | ip |
+| **AbuseIPDB** | `ABUSEIPDB_KEY` | abuseipdb.com free tier | ip — _already set ✓_ |
 | **Companies House** | `COMPANIES_HOUSE_KEY` | developer.company-information.service.gov.uk | company (UK) |
 | **Etherscan** | `ETHERSCAN_API_KEY` | etherscan.io free tier | crypto_eth |
 | **EmailRep** | `EMAILREP_KEY` | emailrep.io free tier | email |
@@ -49,7 +56,7 @@ _(SEC EDGAR needs **no key** — set a descriptive `SEC_USER_AGENT` and it works
 
 | Source | Env var(s) | Cost | Un-blinds |
 |---|---|---|---|
-| **VirusTotal** | `VIRUSTOTAL_API_KEY` | free public API (rate-limited) | domain, ip |
+| **VirusTotal** | `VIRUSTOTAL_API_KEY` | free public API (rate-limited) | domain, ip — _already set ✓_ |
 | **Censys** | `CENSYS_API_ID`, `CENSYS_API_SECRET` | free tier | ip (ports/services) |
 | **Hunter** | `HUNTER_API_KEY` | freemium | domain (email pattern/staff) |
 | **HaveIBeenPwned** | `HIBP_API_KEY` | paid (low monthly) | email breaches |
@@ -59,7 +66,7 @@ _(SEC EDGAR needs **no key** — set a descriptive `SEC_USER_AGENT` and it works
 
 | Source | Env var(s) | Un-blinds |
 |---|---|---|
-| **Shodan** | `SHODAN_API_KEY` | ip, domain (exposed services) |
+| **Shodan** | `SHODAN_API_KEY` | ip, domain (exposed services) — _already set ✓_ |
 | **Dehashed** | `DEHASHED_EMAIL`, `DEHASHED_KEY` | email, username, name, phone (breach records) |
 | **Arkham** | `ARKHAM_API_KEY` | crypto (entity attribution) |
 | **WHOIS history** | `VIEWDNS_KEY` | domain (historical registrant) |
