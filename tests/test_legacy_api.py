@@ -11,6 +11,8 @@ from conftest import LEGACY_API, get_json
     ("8.8.8.8",          "ip"),
     ("john@acme.com",    "email"),
     ("0x1234567890abcdef1234567890abcdef12345678", "crypto_eth"),
+    ("+1 (415) 555-0132", "phone"),
+    ("+447911123456",     "phone"),
 ])
 def test_investigate_detect(client, target, expected):
     d = get_json(client, LEGACY_API, "/investigate/detect", params={"target": target})

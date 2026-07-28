@@ -95,3 +95,51 @@ class SECCrawler:
                 log.info("  + %s -> [%s] -> %s (%s)", name, rel, company_name, form_type)
             except ValueError as e:
                 log.warning("Skipped: %s", e)
+
+
+# ── Standalone read-only variant (for the orchestrator; no graph writes) ──────
+
+def _rel_for_form(form_type: str) -> str:
+    if form_type == "4":
+        return "OFFICER_OF"
+    if form_type in ("SC 13D", "SC 13G"):
+        return "INVESTOR_IN"
+    return "BOARD_MEMBER_OF"
+
+
+async def search_sec_filings(name: str, limit: int = 25) -> dict:
+    """EDGAR full-text search for filings naming a person — no Neo4j writes.
+    Returns {found, count, filings:[{company, form_type, relationship}]}."""
+    try:
+        async with httpx.AsyncClient(
+            timeout=30.0,
+            headers={"User-Agent": _USER_AGENT, "Accept": "application/json",
+                     "Accept-Encoding": "gzip, deflate"},
+        ) as client:
+            resp = await client.get(EFTS_URL, params={
+                "q": f'"{name}"',
+                "forms": "DEF 14A,SC 13D,SC 13G,4",
+                "dateRange": "custom", "startdt": "2015-01-01",
+                "from": "0", "size": str(limit),
+            })
+            if resp.status_code == 429:
+                return {"found": False, "reason": "SEC EDGAR rate limited"}
+            if resp.status_code != 200:
+                return {"error": f"SEC EDGAR HTTP {resp.status_code}"}
+            data = resp.json()
+    except Exception as exc:
+        return {"error": str(exc)}
+
+    hits = ((data.get("hits") or {}).get("hits")) or []
+    seen: set[str] = set()
+    filings: list[dict] = []
+    for hit in hits[:limit]:
+        source = hit.get("_source") or {}
+        company = (source.get("entity_name") or "").strip()
+        form = (source.get("form_type") or "").strip()
+        if not company or company in seen:
+            continue
+        seen.add(company)
+        filings.append({"company": company, "form_type": form,
+                        "relationship": _rel_for_form(form)})
+    return {"found": bool(filings), "count": len(filings), "filings": filings}

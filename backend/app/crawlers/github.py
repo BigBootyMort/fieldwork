@@ -126,3 +126,55 @@ class GitHubCrawler:
                     log.info("  + %s -> [WORKS_AT] -> %s (github org)", name, org_name)
                 except ValueError as e:
                     log.warning("Skipped org relationship: %s", e)
+
+
+# ── Standalone read-only variant (for the orchestrator; no graph writes) ──────
+
+async def search_github_users(name: str, limit: int = 5) -> dict:
+    """Search GitHub users by name and return structured matches — no Neo4j
+    writes. Returns {found, count, users:[{login, profile_url, orgs:[…]}]} or a
+    blind/{error} soft result so the orchestrator's coverage can classify it."""
+    token = os.getenv("GITHUB_TOKEN", "")
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+        "User-Agent": "fieldwork-osint/0.2",
+    }
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    limiter = AsyncLimiter(max_rate=1, time_period=1)
+    query = f'"{name}" in:name type:user'
+
+    try:
+        async with httpx.AsyncClient(timeout=20.0, headers=headers,
+                                     follow_redirects=True) as client:
+            async with limiter:
+                resp = await client.get(f"{GITHUB_API}/search/users",
+                                        params={"q": query, "per_page": limit})
+            if resp.status_code in (401, 403):
+                return {"found": False,
+                        "reason": f"no token / rate-limited (HTTP {resp.status_code}) "
+                                  f"— set GITHUB_TOKEN"}
+            if resp.status_code != 200:
+                return {"error": f"GitHub HTTP {resp.status_code}"}
+
+            users = resp.json().get("items", [])[:limit]
+            out: list[dict] = []
+            for user in users:
+                login = user.get("login", "")
+                if not login:
+                    continue
+                async with limiter:
+                    orgs_resp = await client.get(
+                        f"{GITHUB_API}/users/{login}/orgs", params={"per_page": 10})
+                orgs = orgs_resp.json() if orgs_resp.status_code == 200 else []
+                out.append({
+                    "login": login,
+                    "profile_url": user.get("html_url", ""),
+                    "orgs": [o.get("login") or o.get("name")
+                             for o in orgs[:5] if o.get("login") or o.get("name")],
+                })
+    except Exception as exc:
+        return {"error": str(exc)}
+
+    return {"found": bool(out), "count": len(out), "users": out}

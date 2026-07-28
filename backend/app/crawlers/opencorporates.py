@@ -76,3 +76,49 @@ class OpenCorporatesCrawler:
                     log.info("  + %s -> [%s] -> %s", person["name"], rel, company_name)
                 except ValueError as e:
                     log.warning("Skipped relationship: %s", e)
+
+
+# ── Standalone read-only variant (for the orchestrator; no graph writes) ──────
+
+async def search_opencorporates(name: str, company_hint: str | None = None,
+                                limit: int = 25) -> dict:
+    """Search OpenCorporates officers by name — no Neo4j writes.
+    Returns {found, count, officers:[{company, position, relationship}]} or a
+    blind soft result (free tier requires OPENCORPORATES_TOKEN)."""
+    api_key = os.getenv("OPENCORPORATES_TOKEN", "")
+    if not api_key:
+        return {"found": False, "reason": "no key — set OPENCORPORATES_TOKEN"}
+
+    params = {"q": name, "api_token": api_key, "per_page": limit}
+    if company_hint:
+        params["company_name"] = company_hint
+    try:
+        async with httpx.AsyncClient(
+            timeout=30.0, headers={"User-Agent": "fieldwork-osint/0.2"}) as client:
+            resp = await client.get(
+                "https://api.opencorporates.com/v0.4/officers/search", params=params)
+            if resp.status_code in (401, 403):
+                return {"found": False,
+                        "reason": f"invalid token / quota exceeded (HTTP {resp.status_code})"}
+            if resp.status_code != 200:
+                return {"error": f"OpenCorporates HTTP {resp.status_code}"}
+            data = resp.json()
+    except Exception as exc:
+        return {"error": str(exc)}
+
+    officers = (data.get("results", {}) or {}).get("officers", []) or []
+    out: list[dict] = []
+    for wrap in officers[:limit]:
+        officer = wrap.get("officer", {}) if isinstance(wrap, dict) else {}
+        company_name = (officer.get("company") or {}).get("name")
+        position = (officer.get("position") or "")
+        if not company_name:
+            continue
+        pos = position.lower()
+        rel = "OFFICER_OF"
+        if any(k in pos for k in ("director", "board")):
+            rel = "BOARD_MEMBER_OF"
+        elif "employee" in pos:
+            rel = "WORKS_AT"
+        out.append({"company": company_name, "position": position, "relationship": rel})
+    return {"found": bool(out), "count": len(out), "officers": out}

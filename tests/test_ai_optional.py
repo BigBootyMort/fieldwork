@@ -33,3 +33,8 @@ def test_orchestrate_investigation(client):
     assert d.get("tools_run"), "no tools ran"
     assert d.get("engine") in {"claude", "claude-code", "ollama"}
     assert len(d.get("brief", "")) > 50
+    # Coverage/health telemetry: every dispatched tool is bucketed exactly once.
+    cov = d.get("coverage") or {}
+    assert cov.get("intended") == len(d["tools_run"]), "coverage.intended mismatch"
+    bucketed = sum(len(cov.get(k, [])) for k in ("data", "no_findings", "blind", "failed"))
+    assert bucketed == cov["intended"], "every tool must land in exactly one bucket"

@@ -91,9 +91,31 @@ for OPSEC-sensitive targets.
 ### AI investigation layer (added 2026-07; modules in `backend/app/`)
 
 - **`orchestrator.py`** — one target → auto-detect type (name/email/domain/ip/company/
-  username/crypto_eth) → concurrent multi-tool fan-out → Claude-synthesised brief.
+  username/**phone**/crypto_eth) → concurrent multi-tool fan-out → Claude-synthesised brief.
   `POST /investigate/orchestrate` (`persist:true` writes to the graph, `case_id` opt).
   `deep_investigate()` = recursive BFS auto-pivot.
+  - _2026-07-28:_ widened the fan-out (`_tasks_for`) to use more of the crawler
+    arsenal — ip:+Shodan/Censys/VirusTotal, domain:+VirusTotal/Wayback,
+    email/username:+Dehashed/GoogleDorks, name/company:+Aleph(OCCRP)/GoogleDorks,
+    crypto:+Arkham; added a **`phone`** type (phone_intel + Dehashed + dorks).
+  - Every run now returns a **`coverage`** block classifying each tool as
+    `data / no_findings / blind (key not set) / failed`, with reasons. It's fed
+    into the synthesis prompt so confidence tracks what was actually collected and
+    blind sources aren't reported as negative findings.
+  - **Relevance gate** (`relevance.py`, pure-stdlib): keyword crawlers
+    (Court Records, Adverse Media, Reddit search) routinely return items about
+    *other* people; `apply_relevance()` demotes items whose text doesn't mention
+    the target into a `weak_matches` bucket and recomputes `found`/`total` so the
+    brief can't launder them as confirmed facts. Applied for name/company targets;
+    the synth prompt is told to treat `weak_matches` as unverified. Unit-tested in
+    `tests/test_relevance.py` (no stack needed).
+  - `github.py`, `sec.py`, `opencorporates.py` now expose read-only dict-returning
+    variants (`search_github_users`, `search_sec_filings`, `search_opencorporates`)
+    wired into the name/company fan-out — alongside the write-only class crawlers
+    the legacy person-crawl pipeline still uses. `maigret` (container) not yet wired.
+  - _Residual recall gap:_ `court_records.py`'s CourtListener query can miss a
+    target's actual landmark case (e.g. the SDNY criminal docket) — a precision fix
+    (relevance gate) is in; recall tuning is a separate follow-up.
 - **`graph_intel.py`** — `persist_investigation()` writes findings to Neo4j with
   provenance; `get_investigation_subgraph()` (`GET /investigate/graph?target_id=`);
   `merge_entities()` uses APOC `mergeNodes` (`POST /investigate/merge`).

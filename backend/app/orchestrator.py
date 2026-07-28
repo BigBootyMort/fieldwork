@@ -25,6 +25,7 @@ import re
 import httpx
 
 from llm_bridge import claude_complete, NoClaudeError
+from relevance import apply_relevance
 
 # ── Crawlers (all graceful: missing keys just yield a soft result) ──────────
 from crawlers.ipinfo         import enrich_ip_ipinfo
@@ -48,6 +49,20 @@ from crawlers.wikidata       import lookup_wikidata
 from crawlers.reddit         import reddit_user, reddit_search
 from crawlers.companies_house import search_companies_house
 from crawlers.etherscan      import trace_eth_address
+# Newly wired standalone crawlers (all graceful: missing keys yield a soft result)
+from crawlers.shodan_client  import enrich_ip_shodan
+from crawlers.censys         import get_host as censys_get_host
+from crawlers.virustotal     import enrich_domain_vt, enrich_ip_vt
+from crawlers.wayback        import enrich_domain_wayback
+from crawlers.aleph          import search_aleph
+from crawlers.dehashed       import search as dehashed_search
+from crawlers.google_dorks   import run_dork
+from crawlers.arkham         import enrich_wallet_arkham
+from crawlers.phone_intel    import enrich_phone
+# Read-only variants of the legacy write-only crawlers (return dicts, no graph writes)
+from crawlers.github         import search_github_users
+from crawlers.sec            import search_sec_filings
+from crawlers.opencorporates import search_opencorporates
 
 log = logging.getLogger("fieldwork.orchestrator")
 
@@ -57,6 +72,8 @@ _OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2")
 _ETH_RE   = re.compile(r"^0x[a-fA-F0-9]{40}$")
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 _DOMAIN_RE = re.compile(r"^(?=.{1,253}$)([a-zA-Z0-9-]{1,63}\.)+[a-zA-Z]{2,}$")
+_PHONE_SEP_RE = re.compile(r"[\s().\-]")
+_PHONE_RE = re.compile(r"^\+?\d{7,15}$")   # E.164-ish: 7-15 digits, optional +
 
 
 # ── Target type detection ───────────────────────────────────────────────────
@@ -74,6 +91,9 @@ def detect_type(value: str) -> str:
         return "email"
     if _DOMAIN_RE.match(v):
         return "domain"
+    # Phone: strip common separators, then match an E.164-ish digit run
+    if _PHONE_RE.match(_PHONE_SEP_RE.sub("", v)):
+        return "phone"
     # Heuristic: 2+ words of letters → person/company name
     words = v.split()
     if len(words) >= 2 and all(re.match(r"^[A-Za-z.'&,-]+$", w) for w in words):
@@ -90,6 +110,19 @@ provided, write a professional intelligence brief. Be factual and specific —
 cite the tool a fact came from in brackets, e.g. [OFAC] or [HIBP]. Do not
 invent data; if a section has nothing, say "No findings." Classify claims
 (confirmed / reported / unverified) where appropriate.
+
+Ground rules:
+- State ONLY what a tool actually reported. Never infer or add facts no tool
+  provided (e.g. hosting provider, ASN, employer, affiliation) — if it isn't in
+  the tool output, it is not a finding.
+- A COLLECTION COVERAGE line tells you how many sources returned findings and
+  which were "blind" (not configured) or "failed". Blind/failed sources are
+  GAPS, never negative findings — do not write "no breaches" if HIBP was blind.
+- Weight overall confidence by the coverage ratio, and list blind/failed
+  sources explicitly under Confidence & Gaps.
+- Some tools carry a `weak_matches` list and a `relevance` note: those items did
+  NOT verifiably mention the target and were demoted. Treat them as unconfirmed —
+  do not state them as findings; at most note "unverified possible matches exist."
 
 Use exactly these markdown sections:
 
@@ -130,6 +163,20 @@ async def _safe(name: str, coro) -> tuple[str, dict]:
         return name, {"error": str(exc)}
 
 
+async def _aleph(query: str) -> dict:
+    """Adapter: search_aleph() returns a bare list and swallows HTTP errors
+    (public Aleph 401s without a key), which the coverage classifier can't read.
+    Wrap it so a missing key registers as 'blind', not a false 'no findings'."""
+    if not os.getenv("ALEPH_API_KEY"):
+        return {"found": False,
+                "reason": "no key — set ALEPH_API_KEY (public Aleph requires auth)"}
+    try:
+        res = await search_aleph(query)
+    except Exception as exc:
+        return {"error": str(exc)}
+    return {"found": bool(res), "count": len(res), "entities": res[:20]}
+
+
 def _tasks_for(value: str, ttype: str, graph_db) -> list[tuple[str, "asyncio.Future"]]:
     """Build the (tool_name, coroutine) fan-out list for a target type.
 
@@ -147,6 +194,9 @@ def _tasks_for(value: str, ttype: str, graph_db) -> list[tuple[str, "asyncio.Fut
             ("GreyNoise",  enrich_ip_greynoise(graph_db, v)),
             ("InternetDB", enrich_ip_internetdb(graph_db, v)),
             ("ASN",        enrich_ip_asn(graph_db, v)),
+            ("Shodan",     enrich_ip_shodan(graph_db, v)),
+            ("Censys",     censys_get_host(v)),
+            ("VirusTotal", enrich_ip_vt(graph_db, v)),
         ]
     elif ttype == "domain":
         t += [
@@ -158,6 +208,8 @@ def _tasks_for(value: str, ttype: str, graph_db) -> list[tuple[str, "asyncio.Fut
             ("Hunter",          hunt_domain_emails(v)),
             ("OTX",             enrich_otx(v)),
             ("HIBP (domain)",   check_domain_hibp(graph_db, v)),
+            ("VirusTotal",      enrich_domain_vt(graph_db, v)),
+            ("Wayback",         enrich_domain_wayback(graph_db, v)),
         ]
     elif ttype == "email":
         domain = v.split("@", 1)[1]
@@ -168,6 +220,8 @@ def _tasks_for(value: str, ttype: str, graph_db) -> list[tuple[str, "asyncio.Fut
             ("RDAP/WHOIS",    enrich_domain(graph_db, domain)),
             ("Hunter",        hunt_domain_emails(domain)),
             ("Reddit (user)", reddit_user(local)),
+            ("Dehashed",      dehashed_search(v, field="email")),
+            ("Google Dorks",  run_dork(f'"{v}"')),
         ]
     elif ttype == "name":
         t += [
@@ -176,6 +230,11 @@ def _tasks_for(value: str, ttype: str, graph_db) -> list[tuple[str, "asyncio.Fut
             ("Wikidata",       lookup_wikidata(v)),
             ("Adverse Media",  search_adverse_media(v, _OLLAMA_URL, _OLLAMA_MODEL)),
             ("Reddit (search)", reddit_search(v)),
+            ("Aleph (OCCRP)",  _aleph(v)),
+            ("SEC EDGAR",      search_sec_filings(v)),
+            ("GitHub",         search_github_users(v)),
+            ("OpenCorporates", search_opencorporates(v)),
+            ("Google Dorks",   run_dork(f'"{v}"')),
         ]
     elif ttype == "company":
         t += [
@@ -184,24 +243,114 @@ def _tasks_for(value: str, ttype: str, graph_db) -> list[tuple[str, "asyncio.Fut
             ("Court Records",   search_court_records(v)),
             ("Wikidata",        lookup_wikidata(v)),
             ("Adverse Media",   search_adverse_media(v, _OLLAMA_URL, _OLLAMA_MODEL)),
+            ("Aleph (OCCRP)",   _aleph(v)),
+            ("SEC EDGAR",       search_sec_filings(v)),
+            ("OpenCorporates",  search_opencorporates(v)),
+            ("Google Dorks",    run_dork(f'"{v}"')),
         ]
     elif ttype == "username":
         t += [
             ("Reddit (user)",   reddit_user(v)),
             ("Reddit (search)", reddit_search(v)),
             ("Wikidata",        lookup_wikidata(v)),
+            ("Dehashed",        dehashed_search(v, field="username")),
+            ("Google Dorks",    run_dork(f'"{v}"')),
+        ]
+    elif ttype == "phone":
+        t += [
+            ("Phone Intel",   enrich_phone(graph_db, v)),
+            ("Dehashed",      dehashed_search(v, field="phone")),
+            ("Google Dorks",  run_dork(f'"{v}"')),
         ]
     elif ttype == "crypto_eth":
         t += [
             ("Etherscan", trace_eth_address(v)),
             ("OTX",       enrich_otx(v)),
+            ("Arkham",    enrich_wallet_arkham(graph_db, v)),
         ]
     return t
 
 
-def _digest(value: str, ttype: str, results: dict) -> str:
+# ── Coverage / health telemetry ─────────────────────────────────────────────
+# A crawler that can't run because its key is unset is NOT a negative finding —
+# it's a blind spot. Distinguish four outcomes so the brief's confidence tracks
+# what was actually collected, not just how many tools were dispatched.
+
+_NOKEY_HINTS = (
+    "key", "token", "not set", "configure", "credential", "no key",
+    "api_id", "api_secret", "quota", "not installed", "not configured",
+)
+
+
+def _has_signal(res: dict) -> bool:
+    """True if a clean (error-free) result carries an actual finding."""
+    if res.get("found") is True or res.get("valid") is True or res.get("malicious") is True:
+        return True
+    _META = {"found", "valid", "error", "reason", "note", "query", "target",
+             "indicator", "type", "domain", "name", "url", "raw"}
+    for k, val in res.items():
+        if k in _META:
+            continue
+        if isinstance(val, (list, dict)) and val:
+            return True
+        if isinstance(val, (int, float)) and val:
+            return True
+        if isinstance(val, str) and val.strip():
+            return True
+    return False
+
+
+def _classify(res) -> str:
+    """One of: data | no_findings | blind | failed."""
+    if not isinstance(res, dict):
+        return "data" if res else "no_findings"   # _safe-wrapped list (e.g. Aleph)
+    err  = res.get("error")
+    hint = f"{err or ''} {res.get('reason', '')} {res.get('note', '')}".lower()
+    if err:
+        return "blind" if any(h in hint for h in _NOKEY_HINTS) else "failed"
+    # graceful soft results: {"found": false, "reason": "no key — …"}
+    if (res.get("reason") or res.get("note")) and any(h in hint for h in _NOKEY_HINTS):
+        return "blind"
+    return "data" if _has_signal(res) else "no_findings"
+
+
+def _coverage(results: dict) -> dict:
+    """Bucket every tool result and record why blind/failed ones produced nothing."""
+    buckets = {"data": [], "no_findings": [], "blind": [], "failed": []}
+    reasons: dict[str, str] = {}
+    for tool, res in results.items():
+        cls = _classify(res)
+        buckets[cls].append(tool)
+        if cls in ("blind", "failed") and isinstance(res, dict):
+            why = res.get("error") or res.get("reason") or res.get("note") or ""
+            reasons[tool] = str(why)[:140]
+    intended = len(results)
+    return {
+        "intended":    intended,
+        "data":        buckets["data"],
+        "no_findings": buckets["no_findings"],
+        "blind":       buckets["blind"],
+        "failed":      buckets["failed"],
+        "reasons":     reasons,
+        "data_ratio":  round(len(buckets["data"]) / intended, 2) if intended else 0.0,
+    }
+
+
+def _coverage_line(cov: dict) -> str:
+    """One compact line stating what was actually collected, for the LLM digest."""
+    def j(names): return ", ".join(names) if names else "none"
+    return (
+        f"COLLECTION COVERAGE: {len(cov['data'])}/{cov['intended']} sources returned "
+        f"findings. No findings: {j(cov['no_findings'])}. "
+        f"Blind — not configured, treat as GAPS not negatives: {j(cov['blind'])}. "
+        f"Failed (transient): {j(cov['failed'])}."
+    )
+
+
+def _digest(value: str, ttype: str, results: dict, coverage: dict) -> str:
     """Compact the raw tool output into LLM context."""
-    parts = [f"TARGET: {value}", f"TYPE: {ttype}", "", "TOOL OUTPUT:"]
+    parts = [f"TARGET: {value}", f"TYPE: {ttype}", "", _coverage_line(coverage),
+             "", "TOOL OUTPUT:"]
     for tool, res in results.items():
         if not isinstance(res, dict):
             continue
@@ -235,13 +384,16 @@ async def investigate(value: str, ttype: str = "auto", graph_db=None,
 
     pairs = await asyncio.gather(*[_safe(n, c) for n, c in tasks])
     results = dict(pairs)
+    if ttype in ("name", "company"):
+        apply_relevance(value, results)    # demote off-target keyword matches
+    coverage = _coverage(results)
 
     if not synthesize:
         return {"target": value, "type": ttype, "tools_run": list(results.keys()),
-                "engine": None, "brief": "", "results": results}
+                "coverage": coverage, "engine": None, "brief": "", "results": results}
 
     # Synthesise: Claude (API → subscription bridge) → Ollama fallback.
-    digest = _digest(value, ttype, results)
+    digest = _digest(value, ttype, results, coverage)
     brief, engine = "", None
     async with httpx.AsyncClient(timeout=200) as client:
         try:
@@ -266,6 +418,7 @@ async def investigate(value: str, ttype: str = "auto", graph_db=None,
         "target":    value,
         "type":      ttype,
         "tools_run": list(results.keys()),
+        "coverage":  coverage,
         "engine":    engine,
         "brief":     brief,
         "results":   results,
