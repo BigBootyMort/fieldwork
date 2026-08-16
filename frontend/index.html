@@ -4788,6 +4788,7 @@
                 <div class="tab" data-tool="ipinfo">🌐 IP Info</div>
                 <div class="tab" data-tool="hunter">📧 Email Hunt</div>
                 <div class="tab" data-tool="emailrep">🛡 Email Rep</div>
+                <div class="tab" data-tool="mailaccess">📧 Mail Access</div>
                 <div class="tab" data-tool="dorks">🔎 Dorks</div>
                 <div class="tab" data-tool="sanctions">⚖️ Sanctions</div>
                 <div class="tab" data-tool="adverse">📰 Adverse Media</div>
@@ -5864,6 +5865,19 @@
                 </div>
                 <button class="btn btn-primary" onclick="runEmailRep()">🛡 Check Reputation</button>
                 <div id="emailrep-results" style="display:none;margin-top:1.25rem"></div>
+              </div>
+            </div>
+
+            <div id="tools-mailaccess" class="tab-content" style="display:none">
+              <div class="card">
+                <div class="card-title"><span class="icon">📧</span> MailAccess — Email OSINT</div>
+                <p class="text-dim text-small mb-2">Deep email sweep across 2500+ platforms with breach detection and identity clustering. Runs in the background — a long sweep can time out on the first click; results are cached, so click again to fetch the finished report.</p>
+                <div class="input-group">
+                  <label>Email Address</label>
+                  <input id="mailaccess-addr" class="input" placeholder="e.g. someone@example.com" type="email">
+                </div>
+                <button class="btn btn-primary" onclick="runMailAccess()">📧 Investigate Email</button>
+                <div id="mailaccess-results" style="display:none;margin-top:1.25rem"></div>
               </div>
             </div>
 
@@ -8369,6 +8383,38 @@ async function runEmailRep() {
               ${det.spam ? '<div>📨 Seen in spam campaigns</div>' : ''}
               ${det.blacklisted ? '<div>🔴 On spam blacklists</div>' : ''}
               ${d.references ? `<div style="margin-top:0.5rem;font-size:0.8rem;color:var(--text-dim)">${esc(d.references)} reference(s) found online</div>` : ''}
+            </div>
+          </div>`;
+    } catch(e) { showError(el, e.message); }
+}
+
+// ── MailAccess — deep email OSINT (sibling container) ─────────────────────────
+async function runMailAccess() {
+    const email = document.getElementById('mailaccess-addr').value.trim();
+    if (!email) { alert('Enter an email address'); return; }
+    const el = document.getElementById('mailaccess-results');
+    el.style.display = 'block';
+    setLoading(el, 'Investigating across 2500+ platforms… (this can take a minute)');
+    try {
+        const d = await apiFetch(`/enrich/email/${encodeURIComponent(email)}/mailaccess`);
+        if (!d.found) { el.innerHTML = `<div class="text-dim">${esc(d.reason || 'No data')}</div>`; return; }
+        const risk = (d.risk_level || '').toString();
+        const riskColor = /high|critical/i.test(risk) ? 'var(--danger)'
+                        : /low/i.test(risk) ? 'var(--success)' : 'var(--warning)';
+        const scoreLine = (v, label) => (v === null || v === undefined) ? '' :
+            `<div>${label}: <strong>${esc(v)}</strong></div>`;
+        el.innerHTML = `
+          <div class="finding-item">
+            <div class="finding-type">MailAccess — ${esc(email)}</div>
+            <div class="finding-content">
+              ${risk ? `<div style="margin-bottom:0.5rem"><strong style="color:${riskColor}">${esc(risk.toUpperCase())}</strong> risk</div>` : ''}
+              ${d.confirmed_name ? `<div>🪪 Name: <strong>${esc(d.confirmed_name)}</strong></div>` : ''}
+              ${scoreLine(d.exposure_score, '📊 Exposure score')}
+              ${scoreLine(d.credential_risk_score, '🔑 Credential risk score')}
+              <div>👤 Accounts found: <strong>${esc(d.accounts_found ?? 0)}</strong></div>
+              <div>💥 Breaches: <strong>${esc(d.breaches_found ?? 0)}</strong></div>
+              ${d.clusters ? `<div>🕸 Identity clusters: <strong>${esc(d.clusters)}</strong></div>` : ''}
+              ${d.report_id ? `<div style="margin-top:0.5rem;font-size:0.8rem;color:var(--text-dim)">Report ${esc(d.report_id)}</div>` : ''}
             </div>
           </div>`;
     } catch(e) { showError(el, e.message); }

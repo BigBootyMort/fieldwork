@@ -10,17 +10,69 @@ description: >-
   backend/app/crawlers/, a FastAPI /enrich route in backend/app/main.py, and a tool tab +
   panel + handler in frontend/index.html. Prefer this over ad-hoc wiring so the new tool
   matches the ~45 existing crawlers' conventions (graceful errors, runtime API keys,
-  auditing, XSS-safe rendering).
+  auditing, XSS-safe rendering). Also covers wrapping a vendored Python tool / CLI /
+  self-hosted server (MailAccess, maigret, theHarvester, TorBot, horus) as a sibling
+  HTTP container so the crawler layer stays a plain API call.
 ---
 
 # Add an OSINT enrichment tool (full stack)
 
-A tool spans three layers. Build them in this order so each is testable before the next.
+Most tools span three layers (crawler → route → UI). A tool that is a **Python
+package / CLI / self-hosted server** rather than a hosted API adds a **Layer 0** first:
+run it as its own container. Build layers in order so each is testable before the next.
 
 Study one existing tool end-to-end first as a live template — `ipinfo` is the cleanest:
 `backend/app/crawlers/ipinfo.py`, its route (`grep '/ipinfo' backend/app/main.py`), and its
 handler (`grep 'function runIPInfo' frontend/index.html`). Mirror whichever existing tool is
 closest to your indicator type.
+
+## Layer 0 — Vendored tool that isn't a hosted API (sibling container)
+
+Skip this if your source is a hosted HTTP API you call directly (most are) — go to Layer 1.
+
+But some tools you want are **Python packages / CLIs / self-hosted servers** (MailAccess,
+maigret, theHarvester, TorBot, horus, a recon binary). Do **not** `pip install` these into
+the backend image — they drag heavy, conflicting deps (spaCy pins, scrapers, Go tools) and
+some run for minutes. Run each as its **own sibling container that exposes a small HTTP
+API**, exactly like the existing `maigret` / `theharvester` / `recon` services, and have the
+crawler call it over the internal Docker network. The Layer 1 crawler is then identical to
+any other HTTP source.
+
+Two flavors:
+
+- **A — thin wrapper you write** (tool is a CLI, e.g. maigret, theHarvester). Mirror
+  `maigret/` exactly: a `Dockerfile` that installs the tool + `fastapi`+`uvicorn`, and a
+  `server.py` that shells out via `asyncio.create_subprocess_exec`, parses the output, and
+  returns a normalized dict. Study `maigret/server.py` — strict input regex, an **outer
+  wall-clock timeout**, a `TemporaryDirectory` for output, `{...: [...], "count": n}` back.
+- **B — the tool ships its own server** (e.g. MailAccess `mailaccess serve` on :8000). No
+  wrapper — just a `Dockerfile` (`pip install <tool>`, `CMD ["<tool>", "serve"]`,
+  `EXPOSE <port>`); the crawler talks to the tool's own REST API.
+
+Wiring (both flavors):
+
+1. **`<tool>/Dockerfile`** — copy `maigret/Dockerfile` as the base. It already handles the
+   TLS-interception CA trust the build needs (`COPY certs …`; no-ops if `certs/` has no
+   `*.pem`). Copy `maigret/certs/avg_root_ca.pem` into `<tool>/certs/` so the build works
+   behind the host AV proxy. Run as a non-root user; `EXPOSE` the port.
+2. **`docker-compose.yml`** — add a service next to `maigret:` (build context `./<tool>`,
+   `container_name: fieldwork-<tool>`, `restart: unless-stopped`, **no `ports:`** so it
+   stays internal-only). Add `<TOOL>_URL: http://<tool>:<port>` to the **backend** service's
+   `environment:`. If the tool persists state, add a named volume.
+3. **health** — if the tool answers `GET /health`, add it to the aggregate `/health` handler
+   in `main.py` (grep `_ping(f"{_MAIGRET_URL}/health")`) so the dashboard shows it up/down.
+4. Rebuild only that service: `docker compose up -d --build <tool>` (heavy first build —
+   these images pull scrapers/models; later builds are cached). The backend picks up the new
+   route + URL env without a rebuild (`--reload` + volume mount), but editing its compose
+   `environment:` block needs `docker compose up -d backend` to re-read it.
+
+**Long-running / async tools.** A hosted API returns in one call; a full OSINT sweep can
+take minutes. If the tool is async (MailAccess: `POST /api/investigate` → `202` + id → poll
+`GET /api/report/{id}` until `status` is terminal), the crawler must **start, then poll with
+a hard wall-clock cap** (~90–120 s) and degrade to
+`{"found": False, "reason": "timed out — still running"}` rather than hang the request. Tools
+that cache (MailAccess does) make the retry cheap. Set the `httpx` timeout to match, and
+never let it exceed the UI's patience.
 
 ## Layer 1 — Crawler (`backend/app/crawlers/<name>.py`)
 
@@ -113,5 +165,8 @@ activation generically.
   `found:false` + `reason` for a bad/empty/private one (not a 500).
 - Missing-key case returns a friendly `reason`, not a crash.
 - The tab appears, the panel renders, and every rendered field passes through `esc()`.
+- If Layer 0 applies: `docker compose up -d --build <tool>` succeeds, `docker compose exec
+  backend curl -s http://<tool>:<port>/health` (or the crawler's first call) answers, and
+  the tool shows in the aggregate `/health` response.
 - If the tool adds a new service, env var, or endpoint, update `docs/kb/` per the
   maintenance protocol in `CLAUDE.md`.

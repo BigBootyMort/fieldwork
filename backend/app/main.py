@@ -129,6 +129,7 @@ from crawlers.abuseipdb import check_ip as abuseipdb_check_ip
 from crawlers.ipinfo import enrich_ip_ipinfo
 from crawlers.hunter import hunt_domain_emails
 from crawlers.emailrep import check_email_rep
+from crawlers.mailaccess import enrich_email_mailaccess
 from crawlers.google_dorks import run_dork
 from crawlers.sanctions import check_sanctions
 from crawlers.adverse_media import search_adverse_media
@@ -235,11 +236,13 @@ async def _ping(url: str) -> bool:
 @app.get("/health")
 async def health():
     recon_url = os.getenv("RECON_URL", "http://recon:7002")
-    db_ok, maigret_ok, harvester_ok, recon_ok = await asyncio.gather(
+    mailaccess_url = os.getenv("MAILACCESS_URL", "http://mailaccess:8000")
+    db_ok, maigret_ok, harvester_ok, recon_ok, mailaccess_ok = await asyncio.gather(
         graph_db.ping(),
         _ping(f"{_MAIGRET_URL}/health"),
         _ping(f"{_HARVESTER_URL}/health"),
         _ping(f"{recon_url}/health"),
+        _ping(f"{mailaccess_url}/health"),
     )
     return {
         "ok": db_ok,
@@ -247,6 +250,7 @@ async def health():
         "maigret":      maigret_ok,
         "theharvester": harvester_ok,
         "recon":        recon_ok,
+        "mailaccess":   mailaccess_ok,
         "shodan":       bool(os.getenv("SHODAN_API_KEY")),
         "virustotal":   bool(os.getenv("VIRUSTOTAL_API_KEY")),
         "aleph":        bool(os.getenv("ALEPH_API_KEY")),
@@ -804,6 +808,20 @@ async def hibp_email(email: str):
 async def hibp_domain(domain: str):
     """Check if a domain appears in any HIBP breach. Free, no key required."""
     return await check_domain_hibp(graph_db, _validate_domain(domain))
+
+
+# ── MailAccess email OSINT (sibling container, no key) ────────────
+@app.get("/enrich/email/{email}/mailaccess")
+async def mailaccess_email(email: str):
+    """MailAccess sweep: 2500+ platforms, breach detection, identity clustering.
+    Long-running — polls the MailAccess service with a wall-clock cap; retry hits its cache."""
+    if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email) or len(email) > 254:
+        raise HTTPException(400, "Invalid email address")
+    res = await enrich_email_mailaccess(email.lower())
+    _audit("MailAccess", email.lower(),
+           detail=f"exposure={res.get('exposure_score', '?')} accounts={res.get('accounts_found', '?')}",
+           ok=res.get("found", False))
+    return res
 
 
 # ── Arkham crypto wallet enrichment ───────────────────────────────
