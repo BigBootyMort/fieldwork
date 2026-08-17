@@ -79,6 +79,7 @@ services:
       RECON_URL:              http://recon:7002
       MAILACCESS_URL:         http://mailaccess:8000
       TORBOT_URL:             http://torbot:7003
+      VOIDACCESS_URL:         http://voidaccess:7004
       LIBRETRANSLATE_URL:     http://libretranslate:5000
       # Phase 6 — new data sources
       OPENSKY_USERNAME:       ${OPENSKY_USERNAME:-}
@@ -212,6 +213,19 @@ services:
       # Live-mount the wrapper so tweaks need only a restart, not a rebuild (matches recon).
       - ./torbot/server.py:/srv/server.py:ro
 
+  # VoidAccess — dark-web threat-intel platform, run in lightweight CLI mode (SQLite).
+  # Bundles Tor + a thin FastAPI wrapper on :7004 that shells out to `voidaccess
+  # investigate` → `voidaccess export --format json`. Heavy first build (torch+chromadb+
+  # spaCy). Not exposed publicly. server.py live-mounted for fast wrapper iteration.
+  voidaccess:
+    build:
+      context: ./voidaccess
+    container_name: fieldwork-voidaccess
+    restart: unless-stopped
+    volumes:
+      - ./voidaccess/server.py:/srv/server.py:ro
+      - voidaccess_data:/data
+
   # SpiderFoot — OSINT automation framework.
   # Built from GitHub source (no PyPI/Docker Hub package exists).
   # SpiderFoot has NO built-in auth — bound to 127.0.0.1 only.
@@ -330,3 +344,4 @@ volumes:
   libretranslate_models:
   ollama_models:
   mailaccess_data:
+  voidaccess_data:

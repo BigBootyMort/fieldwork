@@ -4791,6 +4791,7 @@
                 <div class="tab" data-tool="mailaccess">📧 Mail Access</div>
                 <div class="tab" data-tool="wigle">📶 WiFi Geo</div>
                 <div class="tab" data-tool="torbot">🧅 Onion Crawl</div>
+                <div class="tab" data-tool="voidaccess">🕳 Void Intel</div>
                 <div class="tab" data-tool="dorks">🔎 Dorks</div>
                 <div class="tab" data-tool="sanctions">⚖️ Sanctions</div>
                 <div class="tab" data-tool="adverse">📰 Adverse Media</div>
@@ -5914,6 +5915,30 @@
                 </div>
                 <button class="btn btn-primary" onclick="runTorBot()">🧅 Crawl</button>
                 <div id="torbot-results" style="display:none;margin-top:1.25rem"></div>
+              </div>
+            </div>
+
+            <div id="tools-voidaccess" class="tab-content">
+              <div class="card">
+                <div class="card-title"><span class="icon">🕳</span> VoidAccess — Dark-Web Threat Intel</div>
+                <p class="text-dim text-small mb-2">Run a themed dark-web investigation around a query, threat actor, or campaign (e.g. “LockBit ransomware”) — entities, sources, and indicators. Slow: a multi-step sweep over Tor with regex/NER extraction (no LLM).</p>
+                <div class="input-group">
+                  <label>Query / actor / campaign</label>
+                  <input id="voidaccess-query" class="input" placeholder="e.g. LockBit ransomware">
+                </div>
+                <div class="input-group">
+                  <label>Depth</label>
+                  <select id="voidaccess-depth" class="input">
+                    <option value="shallow">shallow — fast</option>
+                    <option value="normal">normal</option>
+                    <option value="deep">deep — slow</option>
+                  </select>
+                </div>
+                <div class="input-group">
+                  <label><input type="checkbox" id="voidaccess-tor" checked style="width:auto;margin-right:0.4rem"> Route over Tor (uncheck for clearnet sources only)</label>
+                </div>
+                <button class="btn btn-primary" onclick="runVoidAccess()">🕳 Investigate</button>
+                <div id="voidaccess-results" style="display:none;margin-top:1.25rem"></div>
               </div>
             </div>
 
@@ -8512,6 +8537,39 @@ async function runTorBot() {
               ${d.title ? `<div style="margin-bottom:0.35rem">📄 <strong>${esc(d.title)}</strong></div>` : ''}
               <div style="margin-bottom:0.5rem">↳ <strong>${esc(d.count)}</strong> linked page(s) · 🧅 <strong>${esc(d.onion_count || 0)}</strong> onion</div>
               ${rows || '<div class="text-dim">No linked pages found</div>'}
+            </div>
+          </div>`;
+    } catch(e) { showError(el, e.message); }
+}
+
+// ── VoidAccess — dark-web threat-intel (sibling container, CLI mode) ──────────
+async function runVoidAccess() {
+    const query = document.getElementById('voidaccess-query').value.trim();
+    if (!query) { alert('Enter a query'); return; }
+    const depth = document.getElementById('voidaccess-depth').value;
+    const use_tor = document.getElementById('voidaccess-tor').checked;
+    const el = document.getElementById('voidaccess-results');
+    el.style.display = 'block';
+    setLoading(el, 'Investigating over Tor… (this can take several minutes)');
+    try {
+        const d = await apiFetch('/enrich/darkweb/voidaccess', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ query, depth, use_tor })
+        });
+        if (!d.found) { el.innerHTML = `<div class="text-dim">${esc(d.reason || 'No data')}</div>`; return; }
+        const counts = d.counts || {};
+        const countRows = Object.keys(counts).map(k =>
+            `<span style="margin-right:1rem">${esc(k.replace('_',' '))}: <strong>${esc(counts[k])}</strong></span>`).join('');
+        const ents = (d.top_entities || []).map(e =>
+            `<div class="text-small" style="padding:0.15rem 0;word-break:break-all">${esc(e.type || '?')}: <strong>${esc(e.value)}</strong>${e.confidence != null ? ` <span class="text-dim">(${esc((e.confidence*100).toFixed(0))}%)</span>` : ''}</div>`).join('');
+        el.innerHTML = `
+          <div class="finding-item">
+            <div class="finding-type">VoidAccess — ${esc(d.query)} · ${esc(d.depth)}</div>
+            <div class="finding-content">
+              ${d.investigation_id ? `<div class="text-small text-dim">Investigation ${esc(d.investigation_id)}</div>` : ''}
+              <div style="margin:0.4rem 0">${countRows || '<span class="text-dim">Investigation complete (no summary counts)</span>'}</div>
+              ${ents ? `<div style="margin-top:0.5rem"><div class="text-small text-dim" style="margin-bottom:0.25rem">Top entities</div>${ents}</div>` : ''}
             </div>
           </div>`;
     } catch(e) { showError(el, e.message); }
