@@ -4790,6 +4790,7 @@
                 <div class="tab" data-tool="emailrep">🛡 Email Rep</div>
                 <div class="tab" data-tool="mailaccess">📧 Mail Access</div>
                 <div class="tab" data-tool="wigle">📶 WiFi Geo</div>
+                <div class="tab" data-tool="torbot">🧅 Onion Crawl</div>
                 <div class="tab" data-tool="dorks">🔎 Dorks</div>
                 <div class="tab" data-tool="sanctions">⚖️ Sanctions</div>
                 <div class="tab" data-tool="adverse">📰 Adverse Media</div>
@@ -5892,6 +5893,27 @@
                 </div>
                 <button class="btn btn-primary" onclick="runWigle()">📶 Locate Network</button>
                 <div id="wigle-results" style="display:none;margin-top:1.25rem"></div>
+              </div>
+            </div>
+
+            <div id="tools-torbot" class="tab-content">
+              <div class="card">
+                <div class="card-title"><span class="icon">🧅</span> TorBot — Dark-Web Crawler</div>
+                <p class="text-dim text-small mb-2">Crawl a <strong>.onion</strong> (or clearnet) URL over Tor and map its outbound links. Slow — keep depth low. Discovered .onion links open only in Tor Browser. Complements the Dark Web search tab (which indexes .onion sites rather than crawling one).</p>
+                <div class="input-group">
+                  <label>URL (.onion or http/https)</label>
+                  <input id="torbot-url" class="input" placeholder="http://example…onion  or  https://example.com">
+                </div>
+                <div class="input-group">
+                  <label>Depth</label>
+                  <select id="torbot-depth" class="input">
+                    <option value="1">1 — fast</option>
+                    <option value="2">2</option>
+                    <option value="3">3 — slow</option>
+                  </select>
+                </div>
+                <button class="btn btn-primary" onclick="runTorBot()">🧅 Crawl</button>
+                <div id="torbot-results" style="display:none;margin-top:1.25rem"></div>
               </div>
             </div>
 
@@ -8461,6 +8483,36 @@ async function runWigle() {
           <div class="finding-item">
             <div class="finding-type">WiGLE — ${esc(d.search_type === 'bssid' ? 'BSSID' : 'SSID')} “${esc(d.query)}” · ${esc(d.total_results)} observation(s)</div>
             <div class="finding-content">${rows}</div>
+          </div>`;
+    } catch(e) { showError(el, e.message); }
+}
+
+// ── TorBot — dark-web crawler (sibling container over Tor) ────────────────────
+async function runTorBot() {
+    const url = document.getElementById('torbot-url').value.trim();
+    if (!url) { alert('Enter a URL'); return; }
+    const depth = parseInt(document.getElementById('torbot-depth').value, 10) || 1;
+    const el = document.getElementById('torbot-results');
+    el.style.display = 'block';
+    setLoading(el, 'Crawling over Tor… (this can take a minute)');
+    try {
+        const d = await apiFetch('/enrich/onion/torbot', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ url, depth })
+        });
+        if (!d.found) { el.innerHTML = `<div class="text-dim">${esc(d.reason || 'No data')}</div>`; return; }
+        // Nodes are page titles / HTTP statuses from TorBot's link tree (rendered as plain text).
+        const rows = (d.nodes || []).map(n =>
+            `<div class="text-small" style="padding:0.15rem 0;word-break:break-all">${String(n).includes('.onion') ? '🧅 ' : '↳ '}${esc(n)}</div>`).join('');
+        el.innerHTML = `
+          <div class="finding-item">
+            <div class="finding-type">TorBot — ${esc(d.url)} · depth ${esc(d.depth)}</div>
+            <div class="finding-content">
+              ${d.title ? `<div style="margin-bottom:0.35rem">📄 <strong>${esc(d.title)}</strong></div>` : ''}
+              <div style="margin-bottom:0.5rem">↳ <strong>${esc(d.count)}</strong> linked page(s) · 🧅 <strong>${esc(d.onion_count || 0)}</strong> onion</div>
+              ${rows || '<div class="text-dim">No linked pages found</div>'}
+            </div>
           </div>`;
     } catch(e) { showError(el, e.message); }
 }

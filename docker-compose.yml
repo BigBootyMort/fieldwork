@@ -78,6 +78,7 @@ services:
       HARVESTER_URL:          http://theharvester:7001
       RECON_URL:              http://recon:7002
       MAILACCESS_URL:         http://mailaccess:8000
+      TORBOT_URL:             http://torbot:7003
       LIBRETRANSLATE_URL:     http://libretranslate:5000
       # Phase 6 — new data sources
       OPENSKY_USERNAME:       ${OPENSKY_USERNAME:-}
@@ -198,6 +199,18 @@ services:
     volumes:
       # Persist MailAccess's SQLite cache so finished investigations survive restarts.
       - mailaccess_data:/root
+
+  # TorBot — dark-web .onion crawler. Bundles its own Tor daemon (SOCKS5 :9050) and a
+  # thin FastAPI wrapper on :7003; the backend drives it via POST /search {url, depth}.
+  # Not exposed publicly. First build clones TorBot + installs Tor (heavy; cached after).
+  torbot:
+    build:
+      context: ./torbot
+    container_name: fieldwork-torbot
+    restart: unless-stopped
+    volumes:
+      # Live-mount the wrapper so tweaks need only a restart, not a rebuild (matches recon).
+      - ./torbot/server.py:/srv/server.py:ro
 
   # SpiderFoot — OSINT automation framework.
   # Built from GitHub source (no PyPI/Docker Hub package exists).

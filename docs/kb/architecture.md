@@ -22,6 +22,7 @@ Two generations coexist in one docker-compose stack:
 | spiderfoot | fieldwork-spiderfoot | 5001 | OSINT scanner, built from v4.0 source w/ pyyaml patch |
 | maigret / theharvester / recon | fieldwork-* | — | Aux OSINT tools |
 | mailaccess | fieldwork-mailaccess | — (internal :8000) | Email OSINT sweep (2500+ platforms, breach detection, identity clustering); ships its own REST server, backend reaches it at `MAILACCESS_URL=http://mailaccess:8000`, drives `POST /api/investigate` → poll `GET /api/report/{id}`. Volume `mailaccess_data` persists its SQLite cache. Route: `/enrich/email/{email}/mailaccess`. |
+| torbot | fieldwork-torbot | — (internal :7003) | Dark-web .onion crawler (DedSecInside/TorBot). Bundles its own **Tor daemon** (SOCKS5 :9050) + a thin FastAPI wrapper (`torbot/server.py`) that shells out to the TorBot CLI; backend reaches it at `TORBOT_URL=http://torbot:7003` via `POST /search {url, depth}`. Route: `POST /enrich/onion/torbot`. Complements `ahmia` (search) — TorBot *crawls* a given onion's link tree. |
 | ollama | fieldwork-ollama | 11434 | Local LLM fallback (default model llama3.2) |
 | ollama-init | fieldwork-ollama-init | — | Pulls models on first start |
 | libretranslate | fieldwork-libretranslate | 5000 | Translation for foreign-language news |

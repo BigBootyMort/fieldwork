@@ -131,6 +131,7 @@ from crawlers.hunter import hunt_domain_emails
 from crawlers.emailrep import check_email_rep
 from crawlers.mailaccess import enrich_email_mailaccess
 from crawlers.wigle import enrich_wifi_wigle
+from crawlers.torbot import crawl_onion_torbot
 from crawlers.google_dorks import run_dork
 from crawlers.sanctions import check_sanctions
 from crawlers.adverse_media import search_adverse_media
@@ -238,12 +239,14 @@ async def _ping(url: str) -> bool:
 async def health():
     recon_url = os.getenv("RECON_URL", "http://recon:7002")
     mailaccess_url = os.getenv("MAILACCESS_URL", "http://mailaccess:8000")
-    db_ok, maigret_ok, harvester_ok, recon_ok, mailaccess_ok = await asyncio.gather(
+    torbot_url = os.getenv("TORBOT_URL", "http://torbot:7003")
+    db_ok, maigret_ok, harvester_ok, recon_ok, mailaccess_ok, torbot_ok = await asyncio.gather(
         graph_db.ping(),
         _ping(f"{_MAIGRET_URL}/health"),
         _ping(f"{_HARVESTER_URL}/health"),
         _ping(f"{recon_url}/health"),
         _ping(f"{mailaccess_url}/health"),
+        _ping(f"{torbot_url}/health"),
     )
     return {
         "ok": db_ok,
@@ -252,6 +255,7 @@ async def health():
         "theharvester": harvester_ok,
         "recon":        recon_ok,
         "mailaccess":   mailaccess_ok,
+        "torbot":       torbot_ok,
         "shodan":       bool(os.getenv("SHODAN_API_KEY")),
         "virustotal":   bool(os.getenv("VIRUSTOTAL_API_KEY")),
         "aleph":        bool(os.getenv("ALEPH_API_KEY")),
@@ -836,6 +840,23 @@ async def wigle_wifi(query: str):
     res = await enrich_wifi_wigle(query)
     _audit("WiGLE", query,
            detail=f"type={res.get('search_type', '?')} results={res.get('total_results', 0)}",
+           ok=res.get("found", False))
+    return res
+
+
+# ── TorBot dark-web crawler (sibling container w/ bundled Tor) ─────
+class TorBotRequest(BaseModel):
+    url: str = Field(..., min_length=4, max_length=2048)
+    depth: int = Field(1, ge=1, le=3)
+
+
+@app.post("/enrich/onion/torbot")
+async def torbot_crawl(req: TorBotRequest):
+    """TorBot dark-web crawl: map the outbound link tree of a .onion (or clearnet) URL over Tor.
+    Slow — keep depth 1–2. Complements the Ahmia search tab (which indexes .onion sites)."""
+    res = await crawl_onion_torbot(req.url, req.depth)
+    _audit("TorBot", req.url[:200],
+           detail=f"depth={req.depth} links={res.get('count', 0)}",
            ok=res.get("found", False))
     return res
 
