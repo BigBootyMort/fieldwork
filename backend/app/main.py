@@ -130,6 +130,7 @@ from crawlers.ipinfo import enrich_ip_ipinfo
 from crawlers.hunter import hunt_domain_emails
 from crawlers.emailrep import check_email_rep
 from crawlers.mailaccess import enrich_email_mailaccess
+from crawlers.wigle import enrich_wifi_wigle
 from crawlers.google_dorks import run_dork
 from crawlers.sanctions import check_sanctions
 from crawlers.adverse_media import search_adverse_media
@@ -255,6 +256,7 @@ async def health():
         "virustotal":   bool(os.getenv("VIRUSTOTAL_API_KEY")),
         "aleph":        bool(os.getenv("ALEPH_API_KEY")),
         "saucenao":     bool(os.getenv("SAUCENAO_KEY")),
+        "wigle":        bool(os.getenv("WIGLE_API_KEY")),
     }
 
 
@@ -820,6 +822,20 @@ async def mailaccess_email(email: str):
     res = await enrich_email_mailaccess(email.lower())
     _audit("MailAccess", email.lower(),
            detail=f"exposure={res.get('exposure_score', '?')} accounts={res.get('accounts_found', '?')}",
+           ok=res.get("found", False))
+    return res
+
+
+# ── WiGLE Wi-Fi geolocation (BSSID/SSID → location) ───────────────
+@app.get("/enrich/wifi/{query}/wigle")
+async def wigle_wifi(query: str):
+    """WiGLE lookup: Wi-Fi BSSID (MAC) or SSID → observed lat/long + address. Requires WIGLE_API_KEY."""
+    query = query.strip()
+    if not query or len(query) > 64:
+        raise HTTPException(400, "Query must be 1–64 characters (a BSSID/MAC or SSID)")
+    res = await enrich_wifi_wigle(query)
+    _audit("WiGLE", query,
+           detail=f"type={res.get('search_type', '?')} results={res.get('total_results', 0)}",
            ok=res.get("found", False))
     return res
 
@@ -5191,6 +5207,7 @@ _API_KEY_REGISTRY = [
     {"key": "URLSCAN_API_KEY",      "service": "URLScan.io",         "free": True,  "note": "Free — enables submissions","url": "https://urlscan.io/user/signup"},
     {"key": "ARKHAM_API_KEY",       "service": "Arkham Intel",       "free": False, "note": "Requires application",      "url": "https://platform.arkhamintelligence.com"},
     {"key": "SAUCENAO_KEY",         "service": "SauceNAO",           "free": True,  "note": "150 searches/day",          "url": "https://saucenao.com/user.php?page=register"},
+    {"key": "WIGLE_API_KEY",        "service": "WiGLE (Wi-Fi geo)",  "free": True,  "note": "Use the 'Encoded for use' token from your account", "url": "https://wigle.net/account"},
     {"key": "ALEPH_API_KEY",        "service": "OCCRP Aleph",        "free": True,  "note": "Free with account",         "url": "https://aleph.occrp.org/"},
     {"key": "OPENSKY_USERNAME",     "service": "OpenSky (user)",     "free": True,  "note": "Free with account",         "url": "https://opensky-network.org/index.php?option=com_users&view=registration"},
     {"key": "OPENSKY_PASSWORD",     "service": "OpenSky (pass)",     "free": True,  "note": "Free with account",         "url": "https://opensky-network.org/index.php?option=com_users&view=registration"},

@@ -65,6 +65,7 @@ services:
       VIRUSTOTAL_API_KEY:     ${VIRUSTOTAL_API_KEY:-}
       ALEPH_API_KEY:          ${ALEPH_API_KEY:-}
       SAUCENAO_KEY:           ${SAUCENAO_KEY:-}
+      WIGLE_API_KEY:          ${WIGLE_API_KEY:-}
       CENSYS_API_ID:          ${CENSYS_API_ID:-}
       CENSYS_API_SECRET:      ${CENSYS_API_SECRET:-}
       DEHASHED_EMAIL:         ${DEHASHED_EMAIL:-}

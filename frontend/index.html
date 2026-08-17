@@ -4789,6 +4789,7 @@
                 <div class="tab" data-tool="hunter">📧 Email Hunt</div>
                 <div class="tab" data-tool="emailrep">🛡 Email Rep</div>
                 <div class="tab" data-tool="mailaccess">📧 Mail Access</div>
+                <div class="tab" data-tool="wigle">📶 WiFi Geo</div>
                 <div class="tab" data-tool="dorks">🔎 Dorks</div>
                 <div class="tab" data-tool="sanctions">⚖️ Sanctions</div>
                 <div class="tab" data-tool="adverse">📰 Adverse Media</div>
@@ -4803,7 +4804,7 @@
             </div>
 
             <!-- AI Investigation Orchestrator -->
-            <div id="tools-investigate" class="tab-content" style="display:none">
+            <div id="tools-investigate" class="tab-content">
                 <div class="card" style="border-color:var(--primary)">
                     <div class="card-title"><span class="icon">🔬</span> AI Investigation Orchestrator</div>
                     <p class="text-dim text-small mb-2">Enter <strong>one</strong> target — a name, email, domain, company, IP, username, or ETH address. Fieldwork auto-detects the type, runs every relevant tool in parallel, then an AI analyst synthesizes a full intelligence brief with risk flags and next steps.</p>
@@ -5827,7 +5828,7 @@
             </div><!-- /tools-handle-vary -->
 
             <!-- IPInfo tab -->
-            <div id="tools-ipinfo" class="tab-content" style="display:none">
+            <div id="tools-ipinfo" class="tab-content">
               <div class="card">
                 <div class="card-title"><span class="icon">🌐</span> IP Address Lookup</div>
                 <p class="text-dim text-small mb-2">Looks up geolocation, ISP, ASN and hostname for any IP address. Works without an API key (but slower).</p>
@@ -5841,7 +5842,7 @@
             </div>
 
             <!-- Hunter.io tab -->
-            <div id="tools-hunter" class="tab-content" style="display:none">
+            <div id="tools-hunter" class="tab-content">
               <div class="card">
                 <div class="card-title"><span class="icon">📧</span> Email Discovery</div>
                 <p class="text-dim text-small mb-2">Finds email addresses associated with a company domain using Hunter.io. Requires a free Hunter API key.</p>
@@ -5855,7 +5856,7 @@
             </div>
 
             <!-- EmailRep tab -->
-            <div id="tools-emailrep" class="tab-content" style="display:none">
+            <div id="tools-emailrep" class="tab-content">
               <div class="card">
                 <div class="card-title"><span class="icon">🛡</span> Email Reputation Check</div>
                 <p class="text-dim text-small mb-2">Checks if an email address is suspicious, has been seen in spam campaigns, or linked to malicious activity.</p>
@@ -5868,7 +5869,7 @@
               </div>
             </div>
 
-            <div id="tools-mailaccess" class="tab-content" style="display:none">
+            <div id="tools-mailaccess" class="tab-content">
               <div class="card">
                 <div class="card-title"><span class="icon">📧</span> MailAccess — Email OSINT</div>
                 <p class="text-dim text-small mb-2">Deep email sweep across 2500+ platforms with breach detection and identity clustering. Runs in the background — a long sweep can time out on the first click; results are cached, so click again to fetch the finished report.</p>
@@ -5881,8 +5882,21 @@
               </div>
             </div>
 
+            <div id="tools-wigle" class="tab-content">
+              <div class="card">
+                <div class="card-title"><span class="icon">📶</span> WiGLE — Wi-Fi Geolocation</div>
+                <p class="text-dim text-small mb-2">Locate a Wi-Fi network from crowd-sourced wardriving data. Enter a <strong>BSSID</strong> (access-point MAC, e.g. <code>AA:BB:CC:DD:EE:FF</code>) or an <strong>SSID</strong> (network name). Requires a WiGLE key (🔑).</p>
+                <div class="input-group">
+                  <label>BSSID (MAC) or SSID</label>
+                  <input id="wigle-query" class="input" placeholder="e.g. AA:BB:CC:DD:EE:FF  or  MyHomeWiFi">
+                </div>
+                <button class="btn btn-primary" onclick="runWigle()">📶 Locate Network</button>
+                <div id="wigle-results" style="display:none;margin-top:1.25rem"></div>
+              </div>
+            </div>
+
             <!-- Google Dorks tab -->
-            <div id="tools-dorks" class="tab-content" style="display:none">
+            <div id="tools-dorks" class="tab-content">
               <div class="card">
                 <div class="card-title"><span class="icon">🔎</span> Google Dork Search</div>
                 <p class="text-dim text-small mb-2">Run advanced Google searches using operators like <code>site:</code>, <code>filetype:</code>, <code>intext:</code> to find hidden information. Requires a Google Custom Search API key.</p>
@@ -5908,7 +5922,7 @@
               </div>
             </div>
 
-            <div id="tools-sanctions" class="tab-content" style="display:none">
+            <div id="tools-sanctions" class="tab-content">
               <div class="card">
                 <div class="card-title"><span class="icon">⚖️</span> Sanctions &amp; PEP Screening</div>
                 <p class="text-dim text-small mb-2">Screens against OFAC SDN, EU, UN, UK HMT sanctions lists and Politically Exposed Person (PEP) databases via OpenSanctions. Free — no API key required.</p>
@@ -5921,7 +5935,7 @@
               </div>
             </div>
 
-            <div id="tools-adverse" class="tab-content" style="display:none">
+            <div id="tools-adverse" class="tab-content">
               <div class="card">
                 <div class="card-title"><span class="icon">📰</span> Adverse Media Check</div>
                 <p class="text-dim text-small mb-2">Searches news sources for fraud, criminal, scandal or legal mentions and uses AI to classify each result. Takes 20-40 seconds.</p>
@@ -5934,7 +5948,7 @@
               </div>
             </div>
 
-            <div id="tools-courts" class="tab-content" style="display:none">
+            <div id="tools-courts" class="tab-content">
               <div class="card">
                 <div class="card-title"><span class="icon">🏛</span> Court Records Search</div>
                 <p class="text-dim text-small mb-2">Searches US federal and state court filings via CourtListener. Free — covers millions of cases.</p>
@@ -5948,7 +5962,7 @@
             </div>
 
             <!-- UK Companies House -->
-            <div id="tools-companies-house" class="tab-content" style="display:none">
+            <div id="tools-companies-house" class="tab-content">
               <div class="card">
                 <div class="card-title"><span class="icon">🇬🇧</span> UK Companies House</div>
                 <p class="text-dim text-small mb-2">Official UK register — richer than OpenCorporates for UK entities: officers and <strong>beneficial owners (PSC)</strong>. Free key required (set <code>COMPANIES_HOUSE_KEY</code> in 🔑 API Keys).</p>
@@ -5962,7 +5976,7 @@
             </div>
 
             <!-- AlienVault OTX -->
-            <div id="tools-otx" class="tab-content" style="display:none">
+            <div id="tools-otx" class="tab-content">
               <div class="card">
                 <div class="card-title"><span class="icon">🛰</span> AlienVault OTX — Threat Intel</div>
                 <p class="text-dim text-small mb-2">Community threat-intel context (pulses, malware, adversaries) for an IP, domain, hostname, or file hash. Works keyless; set <code>OTX_API_KEY</code> for higher limits.</p>
@@ -5976,7 +5990,7 @@
             </div>
 
             <!-- Reddit -->
-            <div id="tools-reddit" class="tab-content" style="display:none">
+            <div id="tools-reddit" class="tab-content">
               <div class="card">
                 <div class="card-title"><span class="icon">👽</span> Reddit — User &amp; Content</div>
                 <p class="text-dim text-small mb-2">Profile, karma, active subreddits and recent comments for a username — or search posts. Needs a free script app (<code>REDDIT_CLIENT_ID</code> + <code>REDDIT_CLIENT_SECRET</code> in 🔑 API Keys).</p>
@@ -5993,7 +6007,7 @@
             </div>
 
             <!-- Wikidata -->
-            <div id="tools-wikidata" class="tab-content" style="display:none">
+            <div id="tools-wikidata" class="tab-content">
               <div class="card">
                 <div class="card-title"><span class="icon">📖</span> Wikidata + Wikipedia</div>
                 <p class="text-dim text-small mb-2">Structured entity facts (occupation, citizenship, dates, HQ…) plus the Wikipedia summary — ideal for research briefs. Free, no key.</p>
@@ -6007,7 +6021,7 @@
             </div>
 
             <!-- Etherscan ETH trace -->
-            <div id="tools-ethtrace" class="tab-content" style="display:none">
+            <div id="tools-ethtrace" class="tab-content">
               <div class="card">
                 <div class="card-title"><span class="icon">⟠</span> Ethereum On-Chain Trace</div>
                 <p class="text-dim text-small mb-2">Balance and recent transaction history (counterparties, values, direction) for an ETH address. Free key required (<code>ETHERSCAN_API_KEY</code> in 🔑 API Keys).</p>
@@ -6021,7 +6035,7 @@
             </div>
 
             <!-- Maritime vessel -->
-            <div id="tools-vessel" class="tab-content" style="display:none">
+            <div id="tools-vessel" class="tab-content">
               <div class="card">
                 <div class="card-title"><span class="icon">🚢</span> Maritime — Vessel Tracking</div>
                 <p class="text-dim text-small mb-2">Resolve a vessel by MMSI, IMO, or name → live position (when in the AIS feed) plus tracking links across the major public trackers. Free.</p>
@@ -6035,7 +6049,7 @@
             </div>
 
             <!-- Geocode -->
-            <div id="tools-geocode" class="tab-content" style="display:none">
+            <div id="tools-geocode" class="tab-content">
               <div class="card">
                 <div class="card-title"><span class="icon">🗺</span> Geocode (OpenStreetMap)</div>
                 <p class="text-dim text-small mb-2">Resolve an address or place name to coordinates. Free, no key.</p>
@@ -8416,6 +8430,37 @@ async function runMailAccess() {
               ${d.clusters ? `<div>🕸 Identity clusters: <strong>${esc(d.clusters)}</strong></div>` : ''}
               ${d.report_id ? `<div style="margin-top:0.5rem;font-size:0.8rem;color:var(--text-dim)">Report ${esc(d.report_id)}</div>` : ''}
             </div>
+          </div>`;
+    } catch(e) { showError(el, e.message); }
+}
+
+// ── WiGLE — Wi-Fi geolocation ─────────────────────────────────────────────────
+async function runWigle() {
+    const q = document.getElementById('wigle-query').value.trim();
+    if (!q) { alert('Enter a BSSID (MAC) or SSID'); return; }
+    const el = document.getElementById('wigle-results');
+    el.style.display = 'block';
+    setLoading(el, 'Searching WiGLE…');
+    try {
+        const d = await apiFetch(`/enrich/wifi/${encodeURIComponent(q)}/wigle`);
+        if (!d.found) { el.innerHTML = `<div class="text-dim">${esc(d.reason || 'No data')}</div>`; return; }
+        const rows = (d.results || []).map(r => {
+            const loc = [r.city, r.region, r.country].filter(Boolean).map(esc).join(', ');
+            const hasGeo = r.lat != null && r.lon != null;
+            const mapLink = hasGeo
+                ? `<a href="https://www.openstreetmap.org/?mlat=${encodeURIComponent(r.lat)}&mlon=${encodeURIComponent(r.lon)}#map=17/${encodeURIComponent(r.lat)}/${encodeURIComponent(r.lon)}" target="_blank" rel="noopener">🗺 ${esc(r.lat)}, ${esc(r.lon)}</a>`
+                : '<span class="text-dim">no coordinates</span>';
+            return `
+              <div style="padding:0.5rem 0;border-top:1px solid var(--border)">
+                <div><strong>${esc(r.ssid || '(hidden SSID)')}</strong>${r.bssid ? ` · <code>${esc(r.bssid)}</code>` : ''}</div>
+                <div>${mapLink}${loc ? ` · ${loc}` : ''}</div>
+                ${r.encryption ? `<div class="text-small text-dim">🔒 ${esc(r.encryption)}${r.last_seen ? ` · last seen ${esc(r.last_seen)}` : ''}</div>` : ''}
+              </div>`;
+        }).join('');
+        el.innerHTML = `
+          <div class="finding-item">
+            <div class="finding-type">WiGLE — ${esc(d.search_type === 'bssid' ? 'BSSID' : 'SSID')} “${esc(d.query)}” · ${esc(d.total_results)} observation(s)</div>
+            <div class="finding-content">${rows}</div>
           </div>`;
     } catch(e) { showError(el, e.message); }
 }
