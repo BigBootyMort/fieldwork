@@ -92,6 +92,11 @@ services:
       # Claude (single source with the shell backend via .env). If blank here,
       # the legacy bridge still falls back to backend/app/runtime_api_keys.json.
       ANTHROPIC_API_KEY:      ${ANTHROPIC_API_KEY:-}
+      # OmniRoute — optional OpenAI-compatible LLM gateway tier (below Claude, above Ollama).
+      # Set BASE_URL to a hosted/self-run OmniRoute origin (incl. any /v1) + a MODEL id.
+      OMNIROUTE_BASE_URL:     ${OMNIROUTE_BASE_URL:-}
+      OMNIROUTE_API_KEY:      ${OMNIROUTE_API_KEY:-}
+      OMNIROUTE_MODEL:        ${OMNIROUTE_MODEL:-}
     volumes:
       - ./backend/app:/app
     depends_on:

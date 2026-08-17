@@ -13,7 +13,15 @@ All AI features resolve an engine through the same chain. First available wins:
    `x-api-key`. Both work against `api.anthropic.com/v1/messages`.
 2. **Claude Code bridge** — host-side shim wrapping `claude -p` so the user's Claude
    subscription powers the app without pasting a token. (commit ffbf0f7)
-3. **Ollama** — local fallback in Docker (`http://ollama:11434`, default `llama3.2`).
+3. **OmniRoute** _(optional)_ — OpenAI-compatible multi-provider gateway. Only active
+   when `OMNIROUTE_BASE_URL` (+ `OMNIROUTE_MODEL`, optional `OMNIROUTE_API_KEY`) is set;
+   otherwise a no-op. Tried inside `claude_complete()` **after** Claude API + bridge and
+   **before** `NoClaudeError` is raised, so it sits above Ollama. Engine label
+   `"omniroute"`. Point `OMNIROUTE_BASE_URL` at a hosted or self-run OmniRoute origin
+   (incl. any `/v1`); calls its `/chat/completions`. Wired in the **Fieldwork** bridge
+   (`backend/app/llm_bridge.py`) only — not yet the shell bridge. Keys are UI-settable via
+   the API Key Manager (registry entries `OMNIROUTE_BASE_URL/MODEL/API_KEY`).
+4. **Ollama** — local fallback in Docker (`http://ollama:11434`, default `llama3.2`).
    Always available; callers catch `NoClaudeError` and degrade to it.
 
 ## TWO bridge modules (different config stores)

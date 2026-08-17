@@ -141,6 +141,47 @@ async def call_bridge(
     return text
 
 
+# ── OmniRoute (OpenAI-compatible multi-provider gateway) ────────────────────
+# Optional tier: if OMNIROUTE_BASE_URL is set, completions can route through an
+# OmniRoute gateway (smart routing / fallback / caching across many providers) via
+# its OpenAI-compatible /chat/completions endpoint. Sits BELOW the user's own Claude
+# (API + bridge) and ABOVE the local Ollama fallback — a no-op when unconfigured.
+# Point OMNIROUTE_BASE_URL at a hosted OmniRoute or a self-run instance (its origin,
+# incl. any /v1). Set OMNIROUTE_MODEL to a model id valid in your OmniRoute.
+
+def omniroute_configured() -> bool:
+    return bool(_cfg("OMNIROUTE_BASE_URL").strip())
+
+
+async def call_omniroute(
+    *, system: str, user: str, http: httpx.AsyncClient,
+    temperature: float = 0.2, max_tokens: int = 2048,
+) -> str:
+    base = _cfg("OMNIROUTE_BASE_URL").strip().rstrip("/")
+    if not base:
+        raise NoClaudeError("OMNIROUTE_BASE_URL not configured")
+    target = _cfg("OMNIROUTE_MODEL").strip()
+    if not target:
+        raise NoClaudeError("OMNIROUTE_MODEL not set (pick a model id valid in your OmniRoute)")
+    headers = {"content-type": "application/json"}
+    key = _cfg("OMNIROUTE_API_KEY").strip()
+    if key:
+        headers["authorization"] = f"Bearer {key}"
+    payload = {
+        "model": target,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+        "messages": [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ],
+    }
+    r = await http.post(f"{base}/chat/completions", headers=headers, json=payload, timeout=120.0)
+    r.raise_for_status()
+    data = r.json()
+    return (data.get("choices") or [{}])[0].get("message", {}).get("content", "").strip()
+
+
 # ── Unified entry point ─────────────────────────────────────────────────────
 
 async def claude_complete(
@@ -172,15 +213,32 @@ async def claude_complete(
         if text:
             return text, "claude-code"
 
-    raise NoClaudeError("No Claude engine available (no API key, bridge offline/unauthed)")
+    # Optional OmniRoute tier (multi-provider gateway) before giving up to Ollama.
+    # `model` here is a Claude id, so we don't pass it — OmniRoute uses OMNIROUTE_MODEL.
+    if omniroute_configured():
+        try:
+            text = await call_omniroute(
+                system=system, user=user, http=http,
+                temperature=temperature, max_tokens=max_tokens,
+            )
+            if text:
+                return text, "omniroute"
+        except NoClaudeError:
+            pass
+        except Exception as exc:
+            log.warning("OmniRoute failed (%s) — falling through", exc)
+
+    raise NoClaudeError("No Claude/OmniRoute engine available (caller falls back to Ollama)")
 
 
 async def status(http: httpx.AsyncClient) -> dict:
     api = api_configured()
     bridge = bridge_enabled() and await bridge_healthy(http)
+    omni = omniroute_configured()
     return {
         "claude_api":  api,
         "claude_code": bridge,
-        "engine":      "claude" if api else ("claude-code" if bridge else None),
-        "available":   api or bridge,
+        "omniroute":   omni,
+        "engine":      "claude" if api else ("claude-code" if bridge else ("omniroute" if omni else None)),
+        "available":   api or bridge or omni,
     }
