@@ -25,6 +25,23 @@
     const _bus     = new EventTarget();
     const _palette = []; // {id, label, hint, action, moduleId}
 
+    /* ── Motion (motion.dev) helpers ───────────────────────────────────────
+     * All animation is cosmetic and fully guarded: if window.Motion is missing
+     * (vendored bundle absent) or a call throws, rendering proceeds unaffected. */
+    const _EASE = [0.16, 1, 0.3, 1];   // snappy ease-out that matches the shell's glitch feel
+    function _M() { return window.Motion || null; }
+
+    function _animateIn(root) {
+        const M = _M();
+        if (!M || !root) return;
+        const el = root.firstElementChild || root;
+        try {
+            M.animate(el,
+                { opacity: [0, 1], transform: ['translateY(10px)', 'translateY(0)'] },
+                { duration: 0.3, ease: _EASE });
+        } catch (e) { /* cosmetic only */ }
+    }
+
     /* ── Toast helper ──────────────────────────────────────────────────── */
     function toast(msg, kind = 'info', ttl = 3500) {
         const c = document.getElementById('shell-toasts');
@@ -33,7 +50,26 @@
         el.className = 'shell-toast ' + (kind || '');
         el.textContent = msg;
         c.appendChild(el);
-        setTimeout(() => el.remove(), ttl);
+
+        const M = _M();
+        if (M) {
+            try {
+                M.animate(el, { opacity: [0, 1], transform: ['translateX(24px)', 'translateX(0)'] },
+                          { duration: 0.25, ease: _EASE });
+            } catch (e) {}
+        }
+        const remove = () => {
+            const m = _M();
+            if (m) {
+                try {
+                    m.animate(el, { opacity: [1, 0], transform: ['translateX(0)', 'translateX(24px)'] },
+                              { duration: 0.2 }).finished.then(() => el.remove(), () => el.remove());
+                    return;
+                } catch (e) {}
+            }
+            el.remove();
+        };
+        setTimeout(remove, ttl);
     }
 
     /* ── Public Shell API (modules use this) ───────────────────────────── */
@@ -95,6 +131,7 @@
                 </div>`;
             }
 
+            _animateIn(root);   // cosmetic module-enter transition (guarded)
             activeId = modId;
             // Don't persist iframe modules — they are never auto-restored on startup
             if (next.kind !== 'iframe') {
@@ -372,6 +409,15 @@
             overlay.classList.add('active');
             input.focus();
             render('');
+            const M = _M();
+            const panel = document.getElementById('shell-palette');
+            if (M && panel) {
+                try {
+                    M.animate(panel,
+                        { opacity: [0, 1], transform: ['scale(0.97) translateY(-6px)', 'scale(1) translateY(0)'] },
+                        { duration: 0.2, ease: _EASE });
+                } catch (e) {}
+            }
         };
 
         const items = () => {

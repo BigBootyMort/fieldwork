@@ -40,6 +40,11 @@
     <!-- Toast container -->
     <div id="shell-toasts"></div>
 
+    <!-- Motion (motion.dev) — vendored UMD, exposes window.Motion. Loaded before the
+         shell so animations are available on first paint. CDN-free (OPSEC).
+         Lives under modules/vendor/ (mounted by nginx) alongside the vendored fonts. -->
+    <script src="/modules/vendor/motion/motion.js"></script>
+
     <!-- Shell runtime -->
     <script src="/shell.js"></script>
 
