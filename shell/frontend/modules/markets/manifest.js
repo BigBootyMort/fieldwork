@@ -1,10 +1,10 @@
 /* Markets module — registers with Runi Shell */
 Shell.register({
     id:          'markets',
-    label:       'Markets',
-    icon:        '📈',
+    label:       'Trading Desk',
+    icon:        '🖥',
     kind:        'native',
-    description: 'Live stock & crypto prices with sparklines',
+    description: 'Markets, research, strategy backtesting & broker — one desk',
 
     async mount(root) {
         // Lazy-load CSS

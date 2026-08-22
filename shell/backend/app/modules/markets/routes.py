@@ -1025,37 +1025,15 @@ def build_router(deps: dict) -> APIRouter:
         except Exception as exc:
             raise HTTPException(502, f"Alpaca positions fetch failed: {exc}")
 
-    # ── POST /api/markets/alpaca/order ───────────────────────────────────────
-    _order_last_ts: list[float] = [0.0]
-
+    # ── POST /api/markets/alpaca/order ── DISABLED ───────────────────────────
+    # The Trading Desk is a research tool: the broker pane is read-only (balances +
+    # positions only). Order placement is intentionally not offered through the app —
+    # trade in Alpaca directly. Kept as an explicit 403 stub rather than removed so a
+    # stray call gets a clear signal, not a 404.
     @router.post("/alpaca/order")
-    async def alpaca_order(req: OrderRequest):
-        """Place an order via Alpaca (rate-limited: 1 per 5 seconds)."""
-        now = time.time()
-        if now - _order_last_ts[0] < 5:
-            raise HTTPException(429, "Rate limit: wait 5 seconds between orders")
-        hdrs = _alpaca_headers()
-        if not hdrs:
-            raise HTTPException(400, "Alpaca not configured")
-        payload: dict = {
-            "symbol":        req.symbol.strip().upper(),
-            "qty":           str(req.qty),
-            "side":          req.side.lower(),
-            "type":          req.type.lower(),
-            "time_in_force": req.time_in_force,
-        }
-        if req.limit_price is not None:
-            payload["limit_price"] = str(req.limit_price)
-        try:
-            r = await _http.post(_alpaca_url("/v2/orders"), json=payload, headers=hdrs, timeout=30.0)
-            if r.status_code not in (200, 201):
-                raise HTTPException(r.status_code, f"Alpaca order rejected: {r.text[:300]}")
-            _order_last_ts[0] = time.time()
-            return r.json()
-        except HTTPException:
-            raise
-        except Exception as exc:
-            raise HTTPException(502, f"Alpaca order failed: {exc}")
+    async def alpaca_order_disabled():
+        raise HTTPException(403, "Order placement is disabled — the broker view is read-only. "
+                                 "Place trades in Alpaca directly.")
 
     # ── GET /api/markets/research/contracts ──────────────────────────────────
     @router.get("/research/contracts")

@@ -1,51 +1,70 @@
 <div id="markets-root">
 
-    <!-- ── Toolbar ───────────────────────────────────────────────────── -->
-    <div id="markets-toolbar">
-        <div class="mkt-toolbar-left">
-            <!-- Tab switcher -->
-            <div class="mkt-tab-group" role="tablist">
-                <button class="mkt-tab active" data-tab="watchlist" role="tab">Watchlist</button>
-                <button class="mkt-tab" data-tab="portfolio" role="tab">Portfolio</button>
-                <button class="mkt-tab" data-tab="analysis" role="tab">🤖 AI Analysis</button>
-                <button class="mkt-tab" data-tab="screener" role="tab">🔍 Screener</button>
-                <button class="mkt-tab" data-tab="account" role="tab">📊 Account</button>
-                <button class="mkt-tab" data-tab="research" role="tab">🔬 Deep Research</button>
-            </div>
-            <!-- Watchlist-only filters (hidden in portfolio tab) -->
+    <!-- ── Left sidebar (Fieldwork-style grouped nav) ────────────────── -->
+    <aside class="td-sidebar">
+        <div class="td-brand"><span class="td-logo">🖥</span> TRADING&nbsp;DESK</div>
+
+        <div class="td-group">
+            <div class="td-group-title">Markets</div>
+            <button class="mkt-tab td-nav active" data-tab="watchlist" role="tab">📈 Watchlist</button>
+            <button class="mkt-tab td-nav" data-tab="portfolio" role="tab">💼 Portfolio</button>
+            <button class="mkt-tab td-nav" data-tab="screener"  role="tab">🔍 Screener</button>
+        </div>
+
+        <div class="td-group">
+            <div class="td-group-title">Research</div>
+            <button class="mkt-tab td-nav" data-tab="analysis" role="tab">🤖 AI Analysis</button>
+            <button class="mkt-tab td-nav" data-tab="research" role="tab">🔬 Deep Research</button>
+        </div>
+
+        <div class="td-group">
+            <div class="td-group-title">Strategy Lab</div>
+            <button class="mkt-tab td-nav" data-tab="compose"  role="tab">✨ Compose</button>
+            <button class="mkt-tab td-nav" data-tab="backtest" role="tab">▶ Backtest</button>
+            <button class="mkt-tab td-nav" data-tab="library"  role="tab">📚 Library</button>
+        </div>
+
+        <div class="td-group">
+            <div class="td-group-title">Broker</div>
+            <button class="mkt-tab td-nav" data-tab="account" role="tab">📊 Account</button>
+        </div>
+    </aside>
+
+    <!-- ── Main column ───────────────────────────────────────────────── -->
+    <div class="td-main">
+
+        <!-- Contextual top bar (per-pane controls) -->
+        <div class="td-topbar" id="markets-toolbar">
             <div class="mkt-filter-group" id="mkt-watchlist-filters" role="group">
                 <button class="mkt-filter-btn active" data-filter="all">All</button>
                 <button class="mkt-filter-btn" data-filter="stocks">Equities &amp; ETFs</button>
                 <button class="mkt-filter-btn" data-filter="crypto">Crypto</button>
             </div>
+            <div class="td-topbar-right">
+                <form id="markets-add-form" class="mkt-add-form" autocomplete="off">
+                    <div class="mkt-search-wrap" id="mkt-search-wrap">
+                        <span class="mkt-search-icon">⌕</span>
+                        <input id="markets-add-input" type="text"
+                               placeholder="Add: AAPL, Bitcoin, VWCE…"
+                               spellcheck="false" maxlength="50"
+                               autocomplete="off" role="combobox"
+                               aria-expanded="false" aria-haspopup="listbox"
+                               aria-controls="markets-search-dropdown">
+                        <button type="button" id="mkt-search-clear"
+                                class="mkt-search-clear mkt-hidden"
+                                title="Clear" tabindex="-1">✕</button>
+                        <ul id="markets-search-dropdown" class="mkt-search-drop"
+                            role="listbox" aria-label="Symbol suggestions"></ul>
+                    </div>
+                </form>
+                <button id="mkt-track-btn" class="mkt-btn mkt-btn-track" style="display:none">[+] TRACK.POSITION</button>
+                <span id="markets-last-updated" class="mkt-last-updated"></span>
+                <button id="markets-refresh-btn" class="mkt-btn mkt-btn-icon" title="Refresh prices">↻</button>
+            </div>
         </div>
 
-        <div class="mkt-toolbar-right">
-            <!-- Watchlist: search + select add form -->
-            <form id="markets-add-form" class="mkt-add-form" autocomplete="off">
-                <div class="mkt-search-wrap" id="mkt-search-wrap">
-                    <span class="mkt-search-icon">⌕</span>
-                    <input id="markets-add-input" type="text"
-                           placeholder="Add: AAPL, Bitcoin, VWCE…"
-                           spellcheck="false" maxlength="50"
-                           autocomplete="off" role="combobox"
-                           aria-expanded="false" aria-haspopup="listbox"
-                           aria-controls="markets-search-dropdown">
-                    <button type="button" id="mkt-search-clear"
-                            class="mkt-search-clear mkt-hidden"
-                            title="Clear" tabindex="-1">✕</button>
-                    <ul id="markets-search-dropdown" class="mkt-search-drop"
-                        role="listbox" aria-label="Symbol suggestions"></ul>
-                </div>
-            </form>
-
-            <!-- Portfolio: track-position button (swaps with form) -->
-            <button id="mkt-track-btn" class="mkt-btn mkt-btn-track" style="display:none">[+] TRACK.POSITION</button>
-
-            <span id="markets-last-updated" class="mkt-last-updated"></span>
-            <button id="markets-refresh-btn" class="mkt-btn mkt-btn-icon" title="Refresh prices">↻</button>
-        </div>
-    </div>
+        <!-- Panes -->
+        <div class="td-panes">
 
     <!-- ── Watchlist pane ───────────────────────────────────────────── -->
     <div id="markets-watchlist-pane" class="mkt-pane">
@@ -211,23 +230,7 @@
         <div class="mkt-account-cards" id="mkt-account-cards"></div>
         <div class="mkt-section-label" style="margin-top:1.25rem">// POSITIONS</div>
         <div id="mkt-account-positions" class="mkt-account-positions"></div>
-        <div class="mkt-section-label" style="margin-top:1.25rem">// PLACE ORDER</div>
-        <div class="mkt-order-form" id="mkt-order-form">
-          <select id="mkt-order-side" class="mkt-order-select">
-            <option value="buy">BUY</option>
-            <option value="sell">SELL</option>
-          </select>
-          <input id="mkt-order-symbol" type="text" class="mkt-order-input" placeholder="Symbol" style="width:90px">
-          <input id="mkt-order-qty" type="number" class="mkt-order-input" placeholder="Qty" min="1" style="width:70px">
-          <select id="mkt-order-type" class="mkt-order-select">
-            <option value="market">Market</option>
-            <option value="limit">Limit</option>
-          </select>
-          <input id="mkt-order-limit-price" type="number" class="mkt-order-input" placeholder="Limit $" style="width:90px;display:none" step="0.01">
-          <button id="mkt-order-submit" class="mkt-btn mkt-btn-primary">Submit Order</button>
-          <span id="mkt-order-mode" class="mkt-order-mode"></span>
-        </div>
-        <div id="mkt-order-status" class="mkt-order-status"></div>
+        <div class="mkt-broker-note">🔒 Read-only broker view — balances &amp; positions mirror your Alpaca account. Placing orders is done in Alpaca directly, not through this app.</div>
       </div>
     </div>
 
@@ -307,6 +310,61 @@
         <span style="font-size:0.8rem">Uses Claude AI + live government contract data + FRED macro indicators.</span>
       </div>
     </div>
+
+    <!-- ── Strategy Lab · Compose ─────────────────────────────────────── -->
+    <div id="markets-compose-pane" class="mkt-pane" style="display:none">
+      <div class="q-card">
+        <div class="q-head">Composer <span id="q-engine-chip" class="q-chip">engine…</span></div>
+        <p class="q-hint">Describe a strategy in plain English — Claude writes it as a NautilusTrader strategy. Research only; nothing trades.</p>
+        <textarea id="q-prompt" class="q-input" rows="3" placeholder="e.g. RSI(14) mean reversion on BTC — long below 30, close above 55, trade 0.1 BTC"></textarea>
+        <div class="q-row">
+          <button id="q-gen-btn" class="mkt-btn mkt-btn-primary">✨ Generate</button>
+          <button id="q-template-btn" class="mkt-btn">EMA-cross template</button>
+          <span id="q-validate" class="q-validate"></span>
+        </div>
+        <pre id="q-code" class="q-code" hidden></pre>
+        <p class="q-hint">→ open <strong>Backtest</strong> to run it.</p>
+      </div>
+    </div>
+
+    <!-- ── Strategy Lab · Backtest ────────────────────────────────────── -->
+    <div id="markets-backtest-pane" class="mkt-pane" style="display:none">
+      <div class="q-card">
+        <div class="q-head">Backtest <span class="q-wall">🔒 simulated fills — no live orders</span></div>
+        <div class="q-controls">
+          <label>Symbol
+            <select id="q-symbol" class="q-select"><option>BTC</option><option>ETH</option></select>
+          </label>
+          <label>Interval
+            <select id="q-interval" class="q-select">
+              <option>15m</option><option selected>1h</option><option>4h</option><option>1d</option>
+            </select>
+          </label>
+          <label>Bars
+            <input id="q-limit" class="q-select" type="number" value="800" min="100" max="1000" step="100">
+          </label>
+          <button id="q-run-btn" class="mkt-btn mkt-btn-primary">▶ Run backtest</button>
+        </div>
+        <div id="q-bt-status" class="q-hint"></div>
+        <div id="q-metrics" class="q-metrics" hidden></div>
+        <canvas id="q-curve" class="q-curve" hidden></canvas>
+        <div class="q-row" id="q-save-row" hidden>
+          <input id="q-save-name" class="q-input q-input-sm" placeholder="Save as… (name)">
+          <button id="q-save-btn" class="mkt-btn">💾 Save strategy</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Strategy Lab · Library ─────────────────────────────────────── -->
+    <div id="markets-library-pane" class="mkt-pane" style="display:none">
+      <div class="q-card">
+        <div class="q-head">Strategy Library <button id="q-lib-refresh" class="mkt-btn mkt-btn-icon" title="Refresh">↻</button></div>
+        <div id="q-lib" class="q-lib"></div>
+      </div>
+    </div>
+
+        </div><!-- /td-panes -->
+    </div><!-- /td-main -->
 
     <!-- ── Track-position modal ──────────────────────────────────────────── -->
     <div id="mkt-modal-overlay" class="mkt-modal-overlay" style="display:none">

@@ -1291,6 +1291,123 @@ window.MarketsView = (() => {
     }
 
     // ── Tab switching ─────────────────────────────────────────────────────────
+    // ══ Strategy Lab (Quant / NautilusTrader engine, folded in) ══════════════
+    const _Q = { code: null, cfg: null, metrics: null, library: [], wired: false };
+    const _qEl = (id) => document.getElementById(id);
+    const _qesc = (s) => String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    async function _qapi(path, opts) {
+        const r = await fetch('/api/quant' + path, opts);
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+    }
+    async function _qLoadEngine() {
+        const chip = _qEl('q-engine-chip'); if (!chip) return;
+        try {
+            const d = await _qapi('/engine');
+            if (d.ok) { chip.textContent = 'engine ✓ ' + (d.nautilus || ''); chip.className = 'q-chip q-chip-ok'; }
+            else { chip.textContent = 'engine offline'; chip.className = 'q-chip q-chip-err'; }
+        } catch { chip.textContent = 'engine offline'; chip.className = 'q-chip q-chip-err'; }
+    }
+    async function _qGenerate() {
+        const prompt = _qEl('q-prompt').value.trim(), vd = _qEl('q-validate');
+        if (!prompt) { vd.textContent = 'Enter a description first.'; vd.className = 'q-validate q-bad'; return; }
+        const btn = _qEl('q-gen-btn'); btn.disabled = true; btn.textContent = '✨ Generating…'; vd.textContent = '';
+        try {
+            const g = await _qapi('/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt }) });
+            if (!g.ok) { vd.textContent = '✗ ' + (g.reason || 'failed'); vd.className = 'q-validate q-bad'; return; }
+            _Q.code = g.code; const pre = _qEl('q-code'); pre.textContent = g.code; pre.hidden = false;
+            const v = await _qapi('/validate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: g.code }) });
+            if (v.valid) { vd.textContent = '✓ valid — open Backtest to run'; vd.className = 'q-validate q-good'; }
+            else { vd.textContent = '✗ invalid: ' + (v.reason || ''); vd.className = 'q-validate q-bad'; }
+        } catch (e) { vd.textContent = '✗ ' + e.message; vd.className = 'q-validate q-bad'; }
+        finally { btn.disabled = false; btn.textContent = '✨ Generate'; }
+    }
+    function _qUseTemplate() {
+        _Q.code = null; const pre = _qEl('q-code'); if (pre) pre.hidden = true;
+        const vd = _qEl('q-validate'); vd.textContent = '✓ using built-in EMA-cross (10/30) — open Backtest'; vd.className = 'q-validate q-good';
+    }
+    function _qFmt(v, k) {
+        if (v == null) return '—';
+        if (k === 'pct') return v.toFixed(2) + '%';
+        if (k === 'pct100') return (v * 100).toFixed(1) + '%';
+        if (k === 'usd') return (v >= 0 ? '+' : '') + '$' + v.toFixed(2);
+        if (k === 'num') return typeof v === 'number' ? v.toFixed(2) : v;
+        return v;
+    }
+    const _qTile = (l, v, c) => `<div class="q-tile"><div class="q-tk">${l}</div><div class="q-tv ${c || ''}">${v}</div></div>`;
+    function _qRenderMetrics(d) {
+        const el = _qEl('q-metrics'); el.hidden = false; const pc = (d.total_pnl || 0) >= 0 ? 'q-pos' : 'q-neg';
+        el.innerHTML = _qTile('Trades', d.num_trades ?? 0) + _qTile('Net PnL', _qFmt(d.total_pnl, 'usd'), pc) +
+            _qTile('Return', _qFmt(d.total_return_pct, 'pct'), pc) + _qTile('Win rate', _qFmt(d.win_rate, 'pct100')) +
+            _qTile('Sharpe', _qFmt(d.sharpe, 'num')) + _qTile('Sortino', _qFmt(d.sortino, 'num')) +
+            _qTile('Profit factor', _qFmt(d.profit_factor, 'num')) + _qTile('Expectancy', _qFmt(d.expectancy, 'usd'));
+    }
+    function _qDrawCurve(points) {
+        const cv = _qEl('q-curve'); if (!points || points.length < 2) { cv.hidden = true; return; }
+        cv.hidden = false; const w = cv.clientWidth || 600, h = 150; cv.width = w; cv.height = h;
+        const ctx = cv.getContext('2d'), ys = points.map(p => p.equity), min = Math.min(...ys), max = Math.max(...ys), span = (max - min) || 1;
+        const X = i => (i / (points.length - 1)) * (w - 8) + 4, Y = v => h - 8 - ((v - min) / span) * (h - 16);
+        ctx.clearRect(0, 0, w, h); const up = ys[ys.length - 1] >= ys[0], col = up ? '#2ee6a6' : '#ff4d6d';
+        ctx.beginPath(); ctx.moveTo(X(0), Y(ys[0])); points.forEach((p, i) => ctx.lineTo(X(i), Y(p.equity)));
+        ctx.lineTo(X(points.length - 1), h); ctx.lineTo(X(0), h); ctx.closePath(); ctx.fillStyle = col + '22'; ctx.fill();
+        ctx.beginPath(); ctx.moveTo(X(0), Y(ys[0])); points.forEach((p, i) => ctx.lineTo(X(i), Y(p.equity)));
+        ctx.strokeStyle = col; ctx.lineWidth = 1.6; ctx.stroke();
+    }
+    async function _qBacktest() {
+        const symbol = _qEl('q-symbol').value, interval = _qEl('q-interval').value, limit = parseInt(_qEl('q-limit').value, 10) || 500;
+        const body = { symbol, interval, limit };
+        if (_Q.code) body.code = _Q.code; else body.params = { fast: 10, slow: 30, trade_size: '0.10' };
+        const st = _qEl('q-bt-status'), btn = _qEl('q-run-btn'); btn.disabled = true; btn.textContent = '▶ Running…';
+        st.textContent = `Fetching ${symbol}/USDT ${interval} and running NautilusTrader… (~30s)`;
+        _qEl('q-metrics').hidden = true; _qEl('q-curve').hidden = true; _qEl('q-save-row').hidden = true;
+        try {
+            const d = await _qapi('/backtest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+            if (!d.ok) { st.textContent = '✗ ' + (d.reason || 'failed'); return; }
+            _Q.metrics = d; _Q.cfg = { symbol, interval, code: _Q.code, params: body.params };
+            st.textContent = `Done — ${d.bars} bars, ${d.num_trades} trade(s).`;
+            _qRenderMetrics(d); _qDrawCurve(d.equity_curve || []); _qEl('q-save-row').hidden = false;
+        } catch (e) { st.textContent = '✗ ' + e.message; }
+        finally { btn.disabled = false; btn.textContent = '▶ Run backtest'; }
+    }
+    async function _qLoadLibrary() {
+        const el = _qEl('q-lib'); if (!el) return;
+        try { const d = await _qapi('/strategies'); _Q.library = d.strategies || []; } catch { _Q.library = []; }
+        if (!_Q.library.length) { el.innerHTML = '<div class="q-empty">No saved strategies yet.</div>'; return; }
+        el.innerHTML = _Q.library.map(s => {
+            const m = s.metrics || {}, ret = (m.total_return_pct != null) ? m.total_return_pct.toFixed(2) + '%' : '—', c = (m.total_pnl || 0) >= 0 ? 'q-pos' : 'q-neg';
+            return `<div class="q-lib-item"><div><div class="q-lib-name">${_qesc(s.name)}</div>` +
+                `<div class="q-lib-meta">${_qesc(s.symbol)}/${_qesc(s.interval)} · <span class="${c}">${ret}</span> · ${(m.num_trades ?? 0)} trades</div></div>` +
+                `<div class="q-lib-actions"><button class="mkt-btn mkt-btn-icon" data-qload="${_qesc(s.id)}" title="Load">↑</button>` +
+                `<button class="mkt-btn mkt-btn-icon" data-qdel="${_qesc(s.id)}" title="Delete">✕</button></div></div>`;
+        }).join('');
+    }
+    async function _qSave() {
+        const name = _qEl('q-save-name').value.trim(); if (!name || !_Q.cfg) { _qEl('q-save-name')?.focus(); return; }
+        await _qapi('/strategies', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, code: _Q.cfg.code || '', symbol: _Q.cfg.symbol, interval: _Q.cfg.interval, params: _Q.cfg.params || null, metrics: _Q.metrics || null }) });
+        _qEl('q-save-name').value = ''; if (window.Shell) Shell.toast('Strategy saved', 'success'); _qLoadLibrary();
+    }
+    function _qInitLab() {
+        if (_Q.wired) return; _Q.wired = true;
+        _qEl('q-gen-btn')?.addEventListener('click', _qGenerate);
+        _qEl('q-template-btn')?.addEventListener('click', _qUseTemplate);
+        _qEl('q-run-btn')?.addEventListener('click', _qBacktest);
+        _qEl('q-save-btn')?.addEventListener('click', _qSave);
+        _qEl('q-lib-refresh')?.addEventListener('click', _qLoadLibrary);
+        _qEl('q-lib')?.addEventListener('click', (e) => {
+            const load = e.target.closest('[data-qload]'), del = e.target.closest('[data-qdel]');
+            if (load) {
+                const s = _Q.library.find(x => x.id === load.dataset.qload); if (!s) return;
+                if (s.code) { _Q.code = s.code; const pre = _qEl('q-code'); if (pre) { pre.textContent = s.code; pre.hidden = false; } } else _qUseTemplate();
+                if (s.prompt) _qEl('q-prompt').value = s.prompt;
+                _qEl('q-symbol').value = s.symbol || 'BTC'; _qEl('q-interval').value = s.interval || '1h';
+                switchTab('compose');
+            } else if (del) { _qapi('/strategies/' + del.dataset.qdel, { method: 'DELETE' }).then(_qLoadLibrary); }
+        });
+        _qLoadEngine();
+    }
+
     function switchTab(tab) {
         state.activeTab = tab;
         document.querySelectorAll('.mkt-tab').forEach(b =>
@@ -1313,6 +1430,10 @@ window.MarketsView = (() => {
         else if (tab === 'account')  _loadAccount();
         else if (tab === 'analysis') _initAnalysisTab();
         else if (tab === 'research') _initResearchTab();
+        else if (tab === 'compose' || tab === 'backtest' || tab === 'library') {
+            _qInitLab();
+            if (tab === 'library') _qLoadLibrary();
+        }
     }
 
     // ── Add-position modal ────────────────────────────────────────────────────

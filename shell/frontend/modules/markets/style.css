@@ -1809,3 +1809,96 @@ select:focus { border-bottom-color: var(--primary) !important; }
 .mkt-sc-verdict.buy  { color: #00ff9c; background: rgba(0,255,156,0.12); border: 1px solid rgba(0,255,156,0.35); }
 .mkt-sc-verdict.sell { color: #ff3b5c; background: rgba(255,59,92,0.12); border: 1px solid rgba(255,59,92,0.35); }
 .mkt-sc-verdict.hold { color: #fcee0a; background: rgba(252,238,10,0.10); border: 1px solid rgba(252,238,10,0.30); }
+
+/* ══ Trading Desk — sidebar layout (Markets + Quant merge) ═══════════════════ */
+#markets-root { flex-direction: row !important; align-items: stretch; }
+
+.td-sidebar {
+  width: 210px; flex-shrink: 0; overflow-y: auto;
+  background: var(--surface, #0d0d1f);
+  border-right: 1px solid rgba(24,224,255,0.18);
+  padding: 0.9rem 0.6rem; display: flex; flex-direction: column; gap: 1.05rem;
+}
+.td-brand {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; font-weight: 700;
+  letter-spacing: 0.1em; color: var(--primary, #18e0ff);
+  padding: 0.1rem 0.5rem 0.65rem; border-bottom: 1px solid rgba(24,224,255,0.14);
+}
+.td-logo { margin-right: 0.3rem; }
+.td-group { display: flex; flex-direction: column; gap: 0.22rem; }
+.td-group-title {
+  font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.14em;
+  color: var(--text-dim, #7a86a8); padding: 0 0.55rem 0.25rem;
+}
+/* Sidebar nav buttons — override the old horizontal .mkt-tab styling */
+.mkt-tab.td-nav {
+  display: block !important; width: 100% !important; text-align: left !important;
+  padding: 0.5rem 0.6rem !important; margin: 0 !important; border-radius: 7px !important;
+  border: 1px solid transparent !important; background: transparent !important;
+  color: var(--text, #e0e0f0) !important; font-size: 0.82rem !important;
+  font-family: 'JetBrains Mono', monospace !important; letter-spacing: 0 !important;
+  cursor: pointer; height: auto !important; transition: background .15s, border-color .15s;
+}
+.mkt-tab.td-nav:hover { background: rgba(24,224,255,0.07) !important; color: var(--text,#e0e0f0) !important; }
+.mkt-tab.td-nav.active {
+  background: rgba(24,224,255,0.12) !important;
+  border-color: rgba(24,224,255,0.40) !important;
+  color: var(--primary, #18e0ff) !important;
+}
+
+.td-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.td-topbar {
+  height: auto !important; min-height: 46px; flex-shrink: 0;
+  padding: 0.4rem 0.9rem !important; gap: 0.6rem;
+}
+.td-topbar-right { display: flex; align-items: center; gap: 0.6rem; margin-left: auto; }
+.td-panes { flex: 1; min-height: 0; overflow-y: auto; }
+
+@media (max-width: 760px) {
+  #markets-root { flex-direction: column !important; }
+  .td-sidebar { width: 100%; flex-direction: row; flex-wrap: wrap; overflow-x: auto; gap: 0.4rem; }
+  .td-group { flex-direction: row; flex-wrap: wrap; }
+  .td-group-title { display: none; }
+}
+
+/* ══ Strategy Lab (Quant) panes ═════════════════════════════════════════════ */
+.q-card { background: var(--surface, #0d0d1f); border: 1px solid rgba(24,224,255,0.16);
+  border-radius: 10px; padding: 1rem 1.1rem; margin: 1rem; }
+.q-head { font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; letter-spacing: 0.06em;
+  color: var(--primary, #18e0ff); margin-bottom: 0.6rem; display: flex; align-items: center; gap: 0.6rem; }
+.q-hint { font-size: 0.78rem; color: var(--text-dim, #7a86a8); margin: 0 0 0.6rem; }
+.q-wall { margin-left: auto; font-size: 0.7rem; color: var(--text-dim, #7a86a8); }
+.q-chip { font-size: 0.66rem; padding: 2px 8px; border-radius: 20px; border: 1px solid rgba(24,224,255,0.2); color: var(--text-dim,#7a86a8); }
+.q-chip-ok { color: #2ee6a6; border-color: #2ee6a655; background: #2ee6a611; }
+.q-chip-err { color: #ff4d6d; border-color: #ff4d6d55; background: #ff4d6d11; }
+.q-input { width: 100%; background: #0b0c1a; color: var(--text, #e0e0f0); border: 1px solid rgba(24,224,255,0.18);
+  border-radius: 6px; padding: 0.55rem 0.65rem; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; resize: vertical; }
+.q-input-sm { flex: 1; width: auto; }
+.q-row { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.6rem; flex-wrap: wrap; }
+.q-validate { font-size: 0.75rem; }
+.q-good { color: #2ee6a6; } .q-bad { color: #ff4d6d; }
+.q-code { margin-top: 0.6rem; max-height: 240px; overflow: auto; background: #0b0c1a;
+  border: 1px solid rgba(24,224,255,0.14); border-radius: 6px; padding: 0.6rem; font-size: 0.72rem;
+  color: #b8c4e0; white-space: pre; }
+.q-controls { display: flex; align-items: flex-end; gap: 0.6rem; flex-wrap: wrap; }
+.q-controls label { font-size: 0.68rem; color: var(--text-dim, #7a86a8); display: flex; flex-direction: column; gap: 3px; }
+.q-select { background: #0b0c1a; color: var(--text, #e0e0f0); border: 1px solid rgba(24,224,255,0.18);
+  border-radius: 6px; padding: 0.4rem 0.5rem; font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; color-scheme: dark; }
+.q-metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; margin-top: 0.85rem; }
+.q-tile { background: rgba(24,224,255,0.05); border: 1px solid rgba(24,224,255,0.14); border-radius: 7px; padding: 0.5rem 0.6rem; }
+.q-tk { font-size: 0.6rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-dim, #7a86a8); }
+.q-tv { font-size: 1.05rem; font-weight: 600; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.q-pos { color: #2ee6a6; } .q-neg { color: #ff4d6d; }
+.q-curve { width: 100%; height: 150px; margin-top: 0.7rem; display: block; }
+.q-lib { display: flex; flex-direction: column; gap: 0.4rem; }
+.q-lib-item { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem;
+  background: rgba(24,224,255,0.05); border: 1px solid rgba(24,224,255,0.14); border-radius: 7px; padding: 0.5rem 0.7rem; }
+.q-lib-name { font-size: 0.85rem; font-weight: 600; }
+.q-lib-meta { font-size: 0.7rem; color: var(--text-dim, #7a86a8); margin-top: 2px; }
+.q-lib-actions { display: flex; gap: 0.35rem; }
+.q-empty { color: var(--text-dim, #7a86a8); font-size: 0.8rem; padding: 0.5rem 0; }
+@media (max-width: 620px) { .q-metrics { grid-template-columns: repeat(2, 1fr); } }
+
+/* Read-only broker note */
+.mkt-broker-note { margin-top: 1rem; padding: 0.6rem 0.8rem; font-size: 0.78rem; color: var(--text-dim, #7a86a8);
+  border: 1px dashed rgba(24,224,255,0.2); border-radius: 7px; background: rgba(24,224,255,0.03); }
