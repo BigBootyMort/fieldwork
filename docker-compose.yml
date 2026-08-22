@@ -231,23 +231,24 @@ services:
       - ./voidaccess/server.py:/srv/server.py:ro
       - voidaccess_data:/data
 
-  # VibeTrading — NL→strategy→backtest engine (Track 4 "Quant" module, Phase A).
-  # Research mode only: core package, NO live-exchange extras installed (can't place a
-  # live trade). Thin FastAPI wrapper on :7005 calls VibeTrading's Python API in-process.
-  # ANTHROPIC_API_KEY (or other litellm provider key) powers strategy generation.
-  # Not exposed publicly. server.py live-mounted for fast wrapper iteration.
-  vibetrading:
+  # Quant engine — NautilusTrader backtester for the Quant module (Track 4, rev B).
+  # Replaces the earlier VibeTrading container (whose backtester booked 0 trades). Research
+  # mode only: Nautilus BacktestEngine + SIM venue — no live venue/adapter/exchange key.
+  # Claude fills a strategy scaffold; the wrapper owns the engine/data boilerplate.
+  # Not exposed publicly. server.py + gate.py live-mounted for fast iteration.
+  quant-engine:
     build:
-      context: ./vibetrading
-    container_name: fieldwork-vibetrading
+      context: ./quant-engine
+    container_name: fieldwork-quant-engine
     restart: unless-stopped
     environment:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      # litellm model for strategy generation; override if this account lacks it.
-      VIBE_MODEL: ${VIBE_MODEL:-claude-haiku-4-5-20251001}
+      # Claude model litellm/generation uses; override if this account lacks it.
+      QUANT_MODEL: ${QUANT_MODEL:-claude-haiku-4-5-20251001}
     volumes:
-      - ./vibetrading/server.py:/srv/server.py:ro
-      - vibetrading_data:/data
+      - ./quant-engine/server.py:/srv/server.py:ro
+      - ./quant-engine/gate.py:/srv/gate.py:ro
+      - quant_engine_data:/data
 
   # SpiderFoot — OSINT automation framework.
   # Built from GitHub source (no PyPI/Docker Hub package exists).
@@ -368,4 +369,4 @@ volumes:
   ollama_models:
   mailaccess_data:
   voidaccess_data:
-  vibetrading_data:
+  quant_engine_data:
