@@ -231,6 +231,24 @@ services:
       - ./voidaccess/server.py:/srv/server.py:ro
       - voidaccess_data:/data
 
+  # VibeTrading — NL→strategy→backtest engine (Track 4 "Quant" module, Phase A).
+  # Research mode only: core package, NO live-exchange extras installed (can't place a
+  # live trade). Thin FastAPI wrapper on :7005 calls VibeTrading's Python API in-process.
+  # ANTHROPIC_API_KEY (or other litellm provider key) powers strategy generation.
+  # Not exposed publicly. server.py live-mounted for fast wrapper iteration.
+  vibetrading:
+    build:
+      context: ./vibetrading
+    container_name: fieldwork-vibetrading
+    restart: unless-stopped
+    environment:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      # litellm model for strategy generation; override if this account lacks it.
+      VIBE_MODEL: ${VIBE_MODEL:-claude-haiku-4-5-20251001}
+    volumes:
+      - ./vibetrading/server.py:/srv/server.py:ro
+      - vibetrading_data:/data
+
   # SpiderFoot — OSINT automation framework.
   # Built from GitHub source (no PyPI/Docker Hub package exists).
   # SpiderFoot has NO built-in auth — bound to 127.0.0.1 only.
@@ -350,3 +368,4 @@ volumes:
   ollama_models:
   mailaccess_data:
   voidaccess_data:
+  vibetrading_data:
