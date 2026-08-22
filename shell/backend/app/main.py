@@ -31,6 +31,7 @@ from modules.agent     import manifest as agent_manifest
 from modules.gigs      import manifest as gigs_manifest
 from modules.presence  import manifest as presence_manifest
 from modules.identity  import manifest as identity_manifest
+from modules.quant     import manifest as quant_manifest
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 log = logging.getLogger("shell")
@@ -47,6 +48,7 @@ registry.register(agent_manifest)
 registry.register(gigs_manifest)
 registry.register(presence_manifest)
 registry.register(identity_manifest)
+registry.register(quant_manifest)
 # Future modules:
 #   from modules.calendar import manifest as cal_manifest
 #   registry.register(cal_manifest)

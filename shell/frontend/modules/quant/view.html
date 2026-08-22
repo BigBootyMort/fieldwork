@@ -1,0 +1,59 @@
+<div class="quant-root">
+  <div class="quant-toolbar">
+    <span class="quant-logo">📈</span>
+    <span class="quant-title">QUANT</span>
+    <span class="quant-sub">strategy research</span>
+    <span id="quant-engine-chip" class="quant-chip quant-chip--muted">engine…</span>
+    <span class="quant-wall">🔒 backtest &amp; paper only — no live trading</span>
+  </div>
+
+  <div class="quant-grid">
+    <!-- Composer -->
+    <section class="quant-card quant-composer">
+      <div class="quant-card-head">① Composer</div>
+      <p class="quant-hint">Describe a strategy in plain English. Claude writes it as a NautilusTrader strategy.</p>
+      <textarea id="quant-prompt" class="quant-input" rows="3"
+        placeholder="e.g. RSI(14) mean reversion on BTC — long when RSI below 30, close above 55, trade 0.1 BTC"></textarea>
+      <div class="quant-row">
+        <button id="quant-gen-btn" class="quant-btn quant-btn--primary">✨ Generate</button>
+        <button id="quant-template-btn" class="quant-btn quant-btn--ghost">Use EMA-cross template</button>
+        <span id="quant-validate" class="quant-validate"></span>
+      </div>
+      <pre id="quant-code" class="quant-code" hidden></pre>
+    </section>
+
+    <!-- Backtest -->
+    <section class="quant-card quant-backtest">
+      <div class="quant-card-head">② Backtest</div>
+      <div class="quant-controls">
+        <label>Symbol
+          <select id="quant-symbol" class="quant-select"><option>BTC</option><option>ETH</option></select>
+        </label>
+        <label>Interval
+          <select id="quant-interval" class="quant-select">
+            <option>15m</option><option selected>1h</option><option>4h</option><option>1d</option>
+          </select>
+        </label>
+        <label>Bars
+          <input id="quant-limit" class="quant-select" type="number" value="800" min="100" max="1000" step="100">
+        </label>
+        <button id="quant-run-btn" class="quant-btn quant-btn--primary">▶ Run backtest</button>
+      </div>
+      <div id="quant-bt-status" class="quant-hint"></div>
+
+      <div id="quant-metrics" class="quant-metrics" hidden></div>
+      <canvas id="quant-curve" class="quant-curve" hidden></canvas>
+
+      <div class="quant-row" id="quant-save-row" hidden>
+        <input id="quant-save-name" class="quant-input quant-input--sm" placeholder="Save as… (name)">
+        <button id="quant-save-btn" class="quant-btn quant-btn--ghost">💾 Save strategy</button>
+      </div>
+    </section>
+
+    <!-- Library -->
+    <section class="quant-card quant-library">
+      <div class="quant-card-head">③ Library <button id="quant-lib-refresh" class="quant-mini">↻</button></div>
+      <div id="quant-lib" class="quant-lib"></div>
+    </section>
+  </div>
+</div>

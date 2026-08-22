@@ -141,6 +141,8 @@ services:
       FIELDWORK_FRONT:  ${FIELDWORK_FRONT_URL:-http://localhost:3000}
       OLLAMA_URL:       http://ollama:11434
       OLLAMA_MODEL:     ${OLLAMA_MODEL:-llama3.2}
+      # Quant module → NautilusTrader backtest engine sibling container.
+      QUANT_ENGINE_URL: http://quant-engine:7005
       # Claude for all shell modules (news brief, markets/reports analysis, agent,
       # gigs, presence). Without it the shell falls back to Ollama. The Agent ⚙
       # Settings UI (agent_config.json) also sets this and overrides env.

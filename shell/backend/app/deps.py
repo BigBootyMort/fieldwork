@@ -33,6 +33,8 @@ class Settings:
     FIELDWORK_FRONT:  str = os.getenv("FIELDWORK_FRONT", "http://localhost:3000")
     OLLAMA_URL:       str = os.getenv("OLLAMA_URL", "http://ollama:11434")
     OLLAMA_MODEL:     str = os.getenv("OLLAMA_MODEL", "llama3.2")
+    # Quant module — NautilusTrader backtest engine sibling container.
+    QUANT_ENGINE_URL: str = os.getenv("QUANT_ENGINE_URL", "http://quant-engine:7005")
     # ── Agent integrations ────────────────────────────────────────────────────
     GITHUB_TOKEN:      str = os.getenv("GITHUB_TOKEN", "")
     ALPACA_API_KEY:    str = os.getenv("ALPACA_API_KEY", "")
