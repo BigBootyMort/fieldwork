@@ -1340,6 +1340,52 @@ window.MarketsView = (() => {
     }
 
     // ── Portfolio pane renderer ───────────────────────────────────────────────
+    // Portfolio value chart via the shared TDChart (axes, legend, hover tooltip).
+    const _RANGE_DAYS = { '7d': 7, '1mo': 30, '3mo': 90, '6mo': 180, '1y': 365 };
+    function _drawPortfolioChart(positions, canvas) {
+        if (!canvas) return;
+        const rangeCache = state.sparklinesByRange[state.chartRange] || state.sparklines;
+        const series = [];
+        for (const pos of positions) {
+            const spark = rangeCache[pos.symbol] || state.sparklines[pos.symbol];
+            if (!spark || spark.length < 2 || !pos.startPrice) continue;
+            series.push(spark.map(p => pos.invested * (p / pos.startPrice)));
+        }
+        if (!series.length) {
+            const host = canvas.parentElement;
+            if (host) host.innerHTML = '<div class="mkt-chart-nodata">// NO PRICE DATA — REFRESH TO LOAD</div>';
+            return;
+        }
+        const gridLen = Math.max(...series.map(s => s.length));
+        const combined = new Array(gridLen).fill(0);
+        for (const values of series) { const v = interpolate(values, gridLen); for (let i = 0; i < gridLen; i++) combined[i] += v[i]; }
+        const totalInvested = positions.reduce((s, p) => s + p.invested, 0);
+        const up = combined[gridLen - 1] >= totalInvested;
+        const cs = { EUR: '€', USD: '$', GBP: '£' }[positions[0]?.currency] || '';
+        const fmtY = v => cs + (Math.abs(v) >= 1000 ? (v / 1000).toFixed(1) + 'k' : Math.round(v));
+
+        let days = _RANGE_DAYS[state.chartRange];
+        if (!days) {  // 'max' — from earliest position date
+            const earliest = positions.reduce((d, p) => { const pd = new Date(p.startDate); return (pd < d ? pd : d); }, new Date());
+            days = Math.max(1, Math.round((Date.now() - earliest) / 86400000));
+        }
+        const fmtX = i => {
+            const frac = gridLen <= 1 ? 1 : i / (gridLen - 1);
+            if (frac >= 0.999) return 'now';
+            const ago = Math.round(days * (1 - frac));
+            return ago <= 0 ? 'now' : ('-' + ago + 'd');
+        };
+
+        TDChart(canvas, {
+            height: 190, legend: true,
+            series: [
+                { name: 'Portfolio', color: up ? COL_UP : COL_DN, data: combined, width: 2 },
+                { name: 'Cost basis', color: 'rgba(230,236,255,0.4)', data: new Array(gridLen).fill(totalInvested), width: 1 },
+            ],
+            yFormat: fmtY, xFormat: fmtX,
+        });
+    }
+
     function renderPortfolio() {
         const positions = loadPortfolio();
         const emptyEl   = document.getElementById('mkt-portfolio-empty');
@@ -1382,13 +1428,8 @@ window.MarketsView = (() => {
 
         const chartInner = document.getElementById('mkt-chart-inner');
         if (chartInner) {
-            chartInner.innerHTML = portfolioChartSVG(positions);
-            const svg = chartInner.querySelector('.mkt-chart-svg');
-            if (svg) {
-                svg.classList.remove('mkt-chart-draw');
-                void svg.offsetWidth;
-                svg.classList.add('mkt-chart-draw');
-            }
+            chartInner.innerHTML = '<canvas class="mkt-portfolio-canvas"></canvas>';
+            _drawPortfolioChart(positions, chartInner.querySelector('canvas'));
         }
 
         const grid = document.getElementById('mkt-positions-grid');

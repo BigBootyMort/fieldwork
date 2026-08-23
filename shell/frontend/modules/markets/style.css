@@ -1902,3 +1902,6 @@ select:focus { border-bottom-color: var(--primary) !important; }
 /* Read-only broker note */
 .mkt-broker-note { margin-top: 1rem; padding: 0.6rem 0.8rem; font-size: 0.78rem; color: var(--text-dim, #7a86a8);
   border: 1px dashed rgba(24,224,255,0.2); border-radius: 7px; background: rgba(24,224,255,0.03); }
+
+/* Portfolio chart now uses the shared TDChart canvas */
+.mkt-portfolio-canvas { width: 100%; display: block; }
