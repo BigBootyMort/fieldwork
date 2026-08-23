@@ -49,7 +49,9 @@ desktop.ini
 # ── Node (if ever added) ──────────────────────────────────────────
 node_modules/
 
-# ── Claude Code local settings ───────────────────────────────────
+# ── Machine-local MCP / Claude Code settings ─────────────────────
+# .mcp.json holds absolute host paths (leaks the OS username); keep it local.
+.mcp.json
 .claude/settings.local.json
 # Local Claude Code state (worktrees, session/memory data, snapshots)
 .claude/worktrees/

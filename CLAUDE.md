@@ -2,7 +2,7 @@
 
 Single-user, localhost-only OSINT + personal-dashboard platform. Docker Compose stack
 (WSL2 backend) with a legacy "Fieldwork" investigation app being absorbed into a modular
-"Runi Shell". One human user (TheHungryRat); no auth, all ports bind 127.0.0.1.
+"Runi Shell". Single operator; no auth, all ports bind 127.0.0.1.
 
 ## Project knowledge base — READ THIS FIRST
 
@@ -34,7 +34,7 @@ sections over appending duplicates.
   Not in the compose stack; the toolkit gateway spawns it on demand. See
   `docs/kb/architecture.md` and `kali-mcp/README.md`.
 - `NEW/` — old standalone prototype (own docker-compose); not part of the running stack.
-- `app/`, `fieldwork/`, `cd/`, `crawlers/`, `CUsersTheHungryRat…*` — empty or junk
+- `app/`, `fieldwork/`, `cd/`, `crawlers/`, and mangled path-fragment dirs — empty or junk
   directories (the mangled ones came from a path bug); safe to ignore.
 - `AERIS10_BUILD_PLAN.md` — unrelated hardware side project (10.5 GHz radar), not code.
 

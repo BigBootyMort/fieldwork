@@ -162,7 +162,7 @@ rebuild is picked up on the next gateway spawn). Full recipe in `kali-mcp/README
 
 - `NEW/` — early standalone prototype (own compose, graph.py, opencorporates.py); superseded.
 - `app/`, `fieldwork/`, `cd/`, `crawlers/` — empty.
-- `CUsersTheHungryRatfieldworkshell…` dirs at root — junk from a path-separator bug.
+- Mangled path-fragment dirs at root — junk from a path-separator bug (safe to delete).
 - `maltego_transforms.py` — standalone Maltego integration script at repo root.
 - `ruvector.db` copies (root, shell/frontend, module dirs, host-bridge) — Ruflo plugin
   artifacts, not app data.
