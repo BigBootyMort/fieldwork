@@ -9,6 +9,123 @@
  *
  * Watchlist stored in localStorage under key "markets_watchlist".
  */
+
+/* ══ TDChart — shared readable canvas line chart (axes, gridlines, tick labels,
+ * legend, labeled band, hover crosshair + tooltip). Used by the equity curve and
+ * the AI-analysis chart so every line chart reads the same.
+ *   cfg = {
+ *     height, legend:true,
+ *     series: [{ name, color, data:[num|null], width? }],
+ *     band:   { name, color, upper:[num], lower:[num], fill? } | null,
+ *     yFormat:(v)=>str, xFormat:(i)=>str
+ *   }
+ * ─────────────────────────────────────────────────────────────────────────── */
+function TDChart(canvas, cfg) {
+    if (!canvas) return;
+    const dpr  = window.devicePixelRatio || 1;
+    const cssW = canvas.clientWidth || canvas.offsetWidth || 600;
+    const cssH = cfg.height || 200;
+    canvas.style.height = cssH + 'px';
+    canvas.width = Math.round(cssW * dpr); canvas.height = Math.round(cssH * dpr);
+    const ctx = canvas.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const W = cssW, H = cssH;
+    const padL = 58, padR = 14, padT = cfg.legend ? 26 : 12, padB = 24;
+    const plotW = W - padL - padR, plotH = H - padT - padB;
+    const INK = '#e6ecff', DIM = '#8a94b4', GRID = 'rgba(122,134,168,0.16)', MONO = '10px "JetBrains Mono",monospace';
+
+    const series = (cfg.series || []).filter(s => s.data && s.data.length);
+    const band = (cfg.band && cfg.band.upper && cfg.band.lower && cfg.band.upper.length) ? cfg.band : null;
+    const n = Math.max(0, ...series.map(s => s.data.length), band ? band.upper.length : 0);
+    if (n < 2) return;
+
+    const allY = [];
+    series.forEach(s => s.data.forEach(v => (v != null && isFinite(v)) && allY.push(v)));
+    if (band) { band.upper.concat(band.lower).forEach(v => (v != null && isFinite(v)) && allY.push(v)); }
+    if (!allY.length) return;
+    let ymin = Math.min(...allY), ymax = Math.max(...allY);
+    if (ymin === ymax) { ymin -= 1; ymax += 1; }
+    const yp = (ymax - ymin) * 0.06; ymin -= yp; ymax += yp;
+
+    const X = i => padL + (i / (n - 1)) * plotW;
+    const Y = v => padT + (1 - (v - ymin) / (ymax - ymin)) * plotH;
+    const yFmt = cfg.yFormat || (v => String(Math.round(v)));
+    const xFmt = cfg.xFormat || (i => String(i));
+
+    function poly(arr, color, width, dash) {
+        ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = width; ctx.setLineDash(dash || []);
+        let started = false;
+        arr.forEach((v, i) => { if (v == null || !isFinite(v)) return; const x = X(i), y = Y(v); started ? ctx.lineTo(x, y) : (ctx.moveTo(x, y), started = true); });
+        ctx.stroke(); ctx.setLineDash([]);
+    }
+
+    function drawStatic() {
+        ctx.clearRect(0, 0, W, H);
+        ctx.font = MONO;
+        // y gridlines + labels
+        ctx.textBaseline = 'middle'; ctx.textAlign = 'right';
+        const TY = 4;
+        for (let t = 0; t <= TY; t++) {
+            const v = ymin + (ymax - ymin) * t / TY, y = Y(v);
+            ctx.strokeStyle = GRID; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
+            ctx.fillStyle = DIM; ctx.fillText(yFmt(v), padL - 6, y);
+        }
+        // x labels
+        ctx.textBaseline = 'top'; ctx.textAlign = 'center';
+        const TX = Math.min(5, n - 1);
+        for (let t = 0; t <= TX; t++) {
+            const i = Math.round((n - 1) * t / TX), x = X(i);
+            ctx.fillStyle = DIM; ctx.fillText(xFmt(i), Math.max(padL + 12, Math.min(W - padR - 12, x)), H - padB + 6);
+        }
+        // band fill + dashed edges
+        if (band) {
+            ctx.beginPath(); let s = false;
+            band.upper.forEach((v, i) => { if (v == null) return; const x = X(i), y = Y(v); s ? ctx.lineTo(x, y) : (ctx.moveTo(x, y), s = true); });
+            for (let i = band.lower.length - 1; i >= 0; i--) { const v = band.lower[i]; if (v == null) continue; ctx.lineTo(X(i), Y(v)); }
+            ctx.closePath(); ctx.fillStyle = band.fill || (band.color + '1f'); ctx.fill();
+            poly(band.upper, band.color, 1, [3, 3]); poly(band.lower, band.color, 1, [3, 3]);
+        }
+        // series + endpoint dot
+        series.forEach(s => {
+            poly(s.data, s.color, s.width || 1.8);
+            for (let i = s.data.length - 1; i >= 0; i--) { if (s.data[i] != null && isFinite(s.data[i])) { ctx.fillStyle = s.color; ctx.beginPath(); ctx.arc(X(i), Y(s.data[i]), 3, 0, 7); ctx.fill(); break; } }
+        });
+        // axis frame
+        ctx.strokeStyle = GRID; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(padL, padT); ctx.lineTo(padL, H - padB); ctx.lineTo(W - padR, H - padB); ctx.stroke();
+        // legend
+        if (cfg.legend) {
+            const items = series.map(s => ({ name: s.name, color: s.color })).concat(band ? [{ name: band.name, color: band.color }] : []);
+            ctx.textBaseline = 'middle'; ctx.textAlign = 'left'; let lx = padL, ly = 12;
+            items.forEach(it => { ctx.fillStyle = it.color; ctx.fillRect(lx, ly - 2, 12, 3); ctx.fillStyle = DIM; ctx.fillText(it.name, lx + 16, ly); lx += 16 + ctx.measureText(it.name).width + 16; });
+        }
+    }
+
+    function drawHover(mx) {
+        drawStatic();
+        let i = Math.round(((mx - padL) / plotW) * (n - 1));
+        if (i < 0) i = 0; if (i > n - 1) i = n - 1;
+        const x = X(i);
+        ctx.strokeStyle = 'rgba(138,148,180,0.55)'; ctx.setLineDash([2, 3]); ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(x, padT); ctx.lineTo(x, H - padB); ctx.stroke(); ctx.setLineDash([]);
+        const rows = [];
+        series.forEach(s => { const v = s.data[i]; if (v == null || !isFinite(v)) return; const y = Y(v); ctx.fillStyle = s.color; ctx.beginPath(); ctx.arc(x, y, 3.4, 0, 7); ctx.fill(); rows.push([s.name, yFmt(v), s.color]); });
+        if (band) { const u = band.upper[i], l = band.lower[i]; if (u != null && l != null) rows.push([band.name, yFmt(l) + '–' + yFmt(u), band.color]); }
+        if (!rows.length) return;
+        ctx.font = MONO;
+        const title = xFmt(i);
+        const bw = Math.max(ctx.measureText(title).width, ...rows.map(r => 24 + ctx.measureText(r[0]).width + ctx.measureText(r[1]).width)) + 16;
+        const bh = 20 + rows.length * 14;
+        let bx = x + 12; if (bx + bw > W - padR) bx = x - 12 - bw; let by = padT + 4;
+        ctx.fillStyle = 'rgba(8,9,20,0.95)'; ctx.strokeStyle = GRID; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.rect(bx, by, bw, bh); ctx.fill(); ctx.stroke();
+        ctx.textBaseline = 'top'; ctx.textAlign = 'left'; ctx.fillStyle = DIM; ctx.fillText(title, bx + 8, by + 5);
+        rows.forEach((r, k) => { const ry = by + 20 + k * 14; ctx.fillStyle = r[2]; ctx.fillRect(bx + 8, ry + 4, 8, 3); ctx.fillStyle = INK; ctx.textAlign = 'left'; ctx.fillText(r[0], bx + 20, ry); ctx.textAlign = 'right'; ctx.fillText(r[1], bx + bw - 8, ry); });
+    }
+
+    drawStatic();
+    canvas.onmousemove = e => { const r = canvas.getBoundingClientRect(); drawHover(e.clientX - r.left); };
+    canvas.onmouseleave = () => drawStatic();
+}
+
 window.MarketsView = (() => {
     'use strict';
 
@@ -1344,15 +1461,18 @@ window.MarketsView = (() => {
             _qTile('Profit factor', _qFmt(d.profit_factor, 'num')) + _qTile('Expectancy', _qFmt(d.expectancy, 'usd'));
     }
     function _qDrawCurve(points) {
-        const cv = _qEl('q-curve'); if (!points || points.length < 2) { cv.hidden = true; return; }
-        cv.hidden = false; const w = cv.clientWidth || 600, h = 150; cv.width = w; cv.height = h;
-        const ctx = cv.getContext('2d'), ys = points.map(p => p.equity), min = Math.min(...ys), max = Math.max(...ys), span = (max - min) || 1;
-        const X = i => (i / (points.length - 1)) * (w - 8) + 4, Y = v => h - 8 - ((v - min) / span) * (h - 16);
-        ctx.clearRect(0, 0, w, h); const up = ys[ys.length - 1] >= ys[0], col = up ? '#2ee6a6' : '#ff4d6d';
-        ctx.beginPath(); ctx.moveTo(X(0), Y(ys[0])); points.forEach((p, i) => ctx.lineTo(X(i), Y(p.equity)));
-        ctx.lineTo(X(points.length - 1), h); ctx.lineTo(X(0), h); ctx.closePath(); ctx.fillStyle = col + '22'; ctx.fill();
-        ctx.beginPath(); ctx.moveTo(X(0), Y(ys[0])); points.forEach((p, i) => ctx.lineTo(X(i), Y(p.equity)));
-        ctx.strokeStyle = col; ctx.lineWidth = 1.6; ctx.stroke();
+        const cv = _qEl('q-curve'); if (!cv) return;
+        if (!points || points.length < 2) { cv.hidden = true; return; }
+        cv.hidden = false;
+        const up = points[points.length - 1].equity >= points[0].equity;
+        const fmtUsd = v => (v < 0 ? '-$' : '$') + (Math.abs(v) >= 1000 ? (Math.abs(v) / 1000).toFixed(1) + 'k' : Math.abs(v).toFixed(0));
+        const fmtDate = t => { const d = new Date(t); return isNaN(d) ? '' : (d.getMonth() + 1) + '/' + d.getDate(); };
+        TDChart(cv, {
+            height: 170, legend: false,
+            series: [{ name: 'Equity', color: up ? '#2ee6a6' : '#ff4d6d', data: points.map(p => p.equity), width: 1.8 }],
+            yFormat: fmtUsd,
+            xFormat: i => fmtDate(points[i] && points[i].t),
+        });
     }
     async function _qBacktest() {
         const symbol = _qEl('q-symbol').value, interval = _qEl('q-interval').value, limit = parseInt(_qEl('q-limit').value, 10) || 500;
@@ -1998,39 +2118,25 @@ function _verdictClass(v) {
 function _drawAnalysisChart(ind) {
   const canvas = document.getElementById('mkt-analysis-canvas');
   if (!canvas || !ind.closes?.length) return;
-  const ctx    = canvas.getContext('2d');
-  const W      = canvas.offsetWidth || 600;
-  const H      = canvas.height || 180;
-  canvas.width = W;
   const prices = ind.closes;
   const sma20  = ind.sma_20?.series || [];
   const bb_u   = ind.bb?.upper || [];
   const bb_l   = ind.bb?.lower || [];
-  const min    = Math.min(...prices, ...bb_l.filter(Boolean)) * 0.998;
-  const max    = Math.max(...prices, ...bb_u.filter(Boolean)) * 1.002;
-  const scaleY = v => H - 8 - ((v - min) / (max - min)) * (H - 16);
-  const scaleX = i => (i / (prices.length - 1)) * W;
-  ctx.clearRect(0, 0, W, H);
+  const cur    = prices[prices.length - 1] || 0;
+  const dec    = cur >= 100 ? 0 : cur >= 1 ? 2 : 4;
+  const fmt    = v => '$' + v.toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec });
 
-  const drawLine = (arr, color, width = 1.5, dash = []) => {
-    if (!arr.length) return;
-    ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = width; ctx.setLineDash(dash);
-    arr.forEach((v, i) => v != null && (i === 0 ? ctx.moveTo(scaleX(i), scaleY(v)) : ctx.lineTo(scaleX(i), scaleY(v))));
-    ctx.stroke(); ctx.setLineDash([]);
-  };
+  const series = [{ name: 'Price', color: '#f5e642', data: prices, width: 2 }];
+  if (sma20.length) series.push({ name: 'SMA 20', color: '#38bdf8', data: sma20, width: 1.4 });
+  const band = (bb_u.length && bb_l.length)
+    ? { name: 'Bollinger (20, 2σ)', color: 'rgba(167,139,250,0.6)', fill: 'rgba(167,139,250,0.08)', upper: bb_u, lower: bb_l }
+    : null;
 
-  if (bb_u.length && bb_l.length) {
-    ctx.beginPath();
-    bb_u.forEach((v, i) => i === 0 ? ctx.moveTo(scaleX(i), scaleY(v)) : ctx.lineTo(scaleX(i), scaleY(v)));
-    for (let i = bb_l.length - 1; i >= 0; i--) ctx.lineTo(scaleX(i), scaleY(bb_l[i]));
-    ctx.closePath();
-    ctx.fillStyle = 'rgba(245,230,66,0.04)';
-    ctx.fill();
-  }
-  drawLine(bb_u, 'rgba(245,230,66,0.25)', 1, [3, 3]);
-  drawLine(bb_l, 'rgba(245,230,66,0.25)', 1, [3, 3]);
-  drawLine(sma20, '#60a5fa', 1.2);
-  drawLine(prices, '#f5e642', 2);
+  TDChart(canvas, {
+    height: 200, legend: true, series, band,
+    yFormat: fmt,
+    xFormat: i => (i === prices.length - 1 ? 'now' : String(i)),
+  });
 }
 
 function _renderAIOutput(symbol, ai) {
