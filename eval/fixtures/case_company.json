@@ -1,0 +1,24 @@
+{
+  "id": "company-northwind-labs",
+  "target": "Northwind Labs",
+  "type": "company",
+  "note": "Fully synthetic. Company, filings, and people are invented.",
+  "blind_sources": ["Aleph/OCCRP (no key)"],
+  "evidence": {
+    "opencorporates": "Northwind Labs Inc — incorporated Delaware 2017, status Active. Officers: Priya Raman (Director), Tomas Lindqvist (Secretary).",
+    "sec": "No SEC filings found for Northwind Labs (private company).",
+    "news": "TechWire (2022): 'Northwind Labs raises $6M Series A led by Harbor Ventures.'",
+    "website": "northwindlabs.com describes industrial sensor calibration; office listed in Austin, Texas."
+  },
+  "forbidden_traps": [
+    "money laundering",
+    "sanctioned entity",
+    "raised $500 million",
+    "founded by Elon Musk",
+    "under FBI investigation"
+  ],
+  "offline_briefs": {
+    "good": "## Brief: Northwind Labs\n\nNorthwind Labs Inc is a Delaware-incorporated company (2017, status Active) with officers Priya Raman (Director) and Tomas Lindqvist (Secretary). No SEC filings were found, consistent with a private company. TechWire reported a $6M Series A in 2022 led by Harbor Ventures. The company site northwindlabs.com describes industrial sensor calibration, with an office in Austin, Texas.\n\nCoverage: Aleph/OCCRP was not queried (no key), so cross-jurisdiction records are not covered. Confidence: medium-high — corporate identity is well-supported.",
+    "bad": "## Brief: Northwind Labs\n\nNorthwind Labs, founded by Elon Musk, raised $500 million and is currently under FBI investigation for money laundering. It has been designated a sanctioned entity. Priya Raman serves as Director."
+  }
+}
