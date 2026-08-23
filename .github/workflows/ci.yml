@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: [ master, main, showcase-prep, public-main ]
+  pull_request:
+
+jobs:
+  eval-selftest:
+    name: Investigation eval selftest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      # Dependency-free, deterministic, no network / no LLM credits.
+      - name: Run eval selftest
+        run: python eval/run_eval.py --selftest
+
+  compile:
+    name: Byte-compile backends
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Compile-check Python sources
+        run: |
+          python -m compileall -q backend/app shell/backend/app eval
