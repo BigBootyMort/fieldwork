@@ -1,140 +1,182 @@
-# Fieldwork engine — Docker stack
+# Runi-OS
 
-The graph database + FastAPI backend + SpiderFoot OSINT engine that the
-**Fieldwork** HTML app talks to for its "Network graph" view.
+**A modular, self-hosted OSINT & personal-intelligence platform** — 45+ enrichment sources fused into one provenance-tracked graph, an autonomous AI investigation engine, and a modular dashboard, all running as a single `docker compose up`.
 
-> Single-user, localhost-only by design. All ports bind to `127.0.0.1`.
-> Do not expose to a public network without adding auth.
+<p>
+<img alt="Python" src="https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white">
+<img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-async-009688?logo=fastapi&logoColor=white">
+<img alt="Neo4j" src="https://img.shields.io/badge/Neo4j-graph-008CC1?logo=neo4j&logoColor=white">
+<img alt="Docker" src="https://img.shields.io/badge/Docker%20Compose-16%20services-2496ED?logo=docker&logoColor=white">
+<img alt="Nginx" src="https://img.shields.io/badge/nginx-SPA%20%2B%20proxy-009639?logo=nginx&logoColor=white">
+<img alt="Ollama" src="https://img.shields.io/badge/LLM-Claude%20%2B%20Ollama-000000">
+<img alt="License" src="https://img.shields.io/badge/license-MIT-informational">
+</p>
 
-## What's in here
+> **Design intent:** single-operator, **localhost-only**, no auth by design — every port binds `127.0.0.1`. This is a portfolio-grade engineering showcase, not a hosted service. Use only for authorized research on data you have the right to process.
 
-- **Neo4j 5** — graph database. Stores Person, Company, Email, Phone,
-  Username, Account, IP, Domain, Breach, Wallet, Location nodes.
-- **FastAPI backend** (port 8000) — REST API the HTML app talks to. Owns the
-  graph, runs crawlers, proxies SpiderFoot.
-- **OpenCorporates crawler** — corporate registries → board memberships.
-- **SpiderFoot** (port 5001) — 200+ OSINT modules. Built from v4.0 release
-  source with workarounds for known Python 3.11 build issues. See notes below.
+---
 
-## First-time setup
+## Why it exists
 
-```bash
-# 1. Copy the env template and edit it
-cp .env.example .env
-#    Generate a real password:
-openssl rand -hex 24
-#    Paste it as NEO4J_PASSWORD in .env
+Most OSINT work means juggling a dozen disconnected tools and hand-copying results between them. Runi-OS collapses that into **one graph**: every source writes into a shared Neo4j instance with full provenance (which tool, when, how confident), and an AI orchestrator fans a single target out across the whole toolset and writes back a synthesized brief.
 
-# 2. (Optional) Add API tokens for crawlers
-#    OPENCORPORATES_TOKEN, GITHUB_TOKEN, NEWS_API_KEY
-#    Leave blank to disable that crawler
+It's also a live demonstration of a **Strangler Fig migration** — a legacy monolith is being incrementally absorbed, module by module, into a modern modular shell, with both generations running side by side in the same stack.
 
-# 3. Start the stack (first build takes 3–5 minutes because SpiderFoot
-#    builds from source)
-docker compose up -d --build
+---
 
-# 4. Wait until everything is healthy
-docker compose ps
-# You should see:
-#   fieldwork-neo4j        healthy
-#   fieldwork-backend      running
-#   fieldwork-spiderfoot   running
-#   fieldwork-neo4j-init   exited (0)
+## Architecture
 
-# 5. Open the HTML app and configure
-#    Settings → Backend:
-#      Engine URL:     http://127.0.0.1:8000
-#      SpiderFoot URL: http://127.0.0.1:5001
-#    Click each Test button to confirm.
+```mermaid
+flowchart TB
+    subgraph Client["Browser · localhost:3001"]
+        UI["Runi Shell SPA<br/>(vanilla JS, no build step)"]
+    end
+
+    subgraph Edge["nginx"]
+        NG["SPA host + catch-all /api/ proxy"]
+    end
+
+    subgraph Shell["Runi Shell backend · FastAPI :8002"]
+        REG["Module Registry"]
+        M1["News"]:::mod
+        M2["Trading Desk"]:::mod
+        M3["Agent"]:::mod
+        M4["Reports / Gigs / Presence / Identity"]:::mod
+    end
+
+    subgraph Legacy["Legacy engine · FastAPI :8000 (Strangler Fig)"]
+        ORCH["AI Orchestrator<br/>fan-out + synthesis"]
+        CRAWL["45+ OSINT crawlers"]
+    end
+
+    subgraph LLM["Multi-tier LLM chain"]
+        C1["Claude API"] --> C2["Claude Code bridge :8088"] --> C3["Ollama :11434"]
+    end
+
+    subgraph Tools["Sibling OSINT containers"]
+        SF["SpiderFoot"]; MG["Maigret"]; TH["theHarvester"]
+        TB["TorBot + Tor"]; VA["VoidAccess + Tor"]; MA["MailAccess"]
+    end
+
+    subgraph Data["Shared state"]
+        NEO[("Neo4j graph<br/>provenance-tracked")]
+    end
+
+    subgraph Quant["Strategy engine"]
+        NT["NautilusTrader :7005<br/>backtest-only"]
+    end
+
+    subgraph Voice["Voice I/O"]
+        WH["Whisper STT"]; PP["Piper TTS"]
+    end
+
+    UI --> NG --> REG
+    REG --> M1 & M2 & M3 & M4
+    M1 & M3 & M4 -.iframe/api.-> Legacy
+    ORCH --> CRAWL --> Tools
+    ORCH --> LLM
+    M2 --> NT
+    CRAWL --> NEO
+    ORCH --> NEO
+    M1 --> NEO
+    M1 --> Voice
+
+    classDef mod fill:#0d47a1,stroke:#1976d2,color:#fff;
 ```
 
-## SpiderFoot honest notes
+**16-container Docker Compose stack**, all bound to `127.0.0.1`:
 
-SpiderFoot is bundled because nothing else covers as much ground for free.
-But the project is **not actively maintained** — the last open-source release
-was v4.0 in April 2022. Practical consequences:
-
-- We build it from source with a small patch (visible in
-  `spiderfoot/Dockerfile`) because v4.0's `pyyaml==5.4.1` pin doesn't build on
-  modern Python. The patch unpins pyyaml to a 6.x version.
-- Some upstream modules' data sources have changed their APIs since 2022.
-  Expect ~5-15% of modules to be silently broken.
-- Use the **"passive"** scan profile by default. It's the only profile that
-  doesn't probe the target directly (DNS lookups, HTTP fetches, port scans).
-  For OPSEC-sensitive work, never use "all" or "footprint".
-
-The HTML app's SpiderFoot panel offers four profiles:
-
-| Profile | What it does |
+| Layer | Services |
 |---|---|
-| **passive** | Only data sources that index the target externally. No traffic to target. |
-| **investigate** | Passive + malicious-indicator checks (still no direct probes). |
-| **footprint** | Active recon: DNS queries, banner grabs, etc. Target will see traffic. |
-| **all** | Every module, including the loud ones. |
+| **Graph & state** | Neo4j (single shared datastore, provenance on every edge) |
+| **Backends** | Runi Shell API `:8002` · Legacy engine API `:8000` |
+| **Frontends** | Shell SPA `:3001` (nginx) · Legacy SPA `:3000` |
+| **OSINT tools** | SpiderFoot · Maigret · theHarvester · TorBot (+Tor) · VoidAccess (+Tor) · MailAccess |
+| **AI / LLM** | Claude API → Claude Code bridge → Ollama (local `llama3.2` fallback) |
+| **Voice** | Whisper (STT) · Piper (TTS) |
+| **Strategy** | NautilusTrader backtest engine `:7005` |
 
-## Endpoints
+---
 
-### Engine (FastAPI, port 8000)
+## Feature highlights
 
-| Path | Method | Body | Purpose |
-|---|---|---|---|
-| `/`            | GET  | — | Smoke test |
-| `/health`      | GET  | — | Includes DB ping |
-| `/search/person`  | POST | `{name, company?}` | Find existing persons |
-| `/crawl/person`   | POST | `{name, company?}` | Run crawlers, return 2-hop subgraph |
-| `/paths`          | POST | `{source_id, target_id, max_depth}` | Shortest paths |
-| `/person/{id}`    | GET  | — | Fetch a person |
-| `/person/{id}/sources` | GET | — | Heuristic "potential sources" |
-| `/spiderfoot/startscan`         | POST | `{scanname, target, target_type, usecase}` | Start scan |
-| `/spiderfoot/scan/{id}/status`  | GET  | — | Scan status |
-| `/spiderfoot/scan/{id}/results` | GET  | — | Scan events |
-| `/spiderfoot/scans`             | GET  | — | List all scans |
-| `/spiderfoot/promote`           | POST | `{scan_id, case_id?, target_node_id?}` | Promote scan results to graph |
+- **🕸 Unified investigation graph** — 45+ enrichment crawlers (email, domain, IP, username, phone, company, crypto) write into one Neo4j instance. Every node and relationship records its `source`, `confidence`, and `found_at`, so a finding can always be traced back to the tool that produced it.
+- **🤖 Autonomous AI orchestration** — give it one target; it auto-detects the type, fans out concurrently across the relevant tools, tracks a per-source **coverage** map (`data / no_findings / blind / failed`), runs a **relevance gate** so keyword noise can't be laundered as fact, and has Claude synthesize a cited intelligence brief.
+- **🔗 Multi-tier LLM chain** — Claude API → a Claude Code CLI bridge → local Ollama, so every AI feature degrades gracefully and works with or without an API key.
+- **📰 News & brief module** — RSS ingest from ~11 sources → geocoded choropleth world map, embedding-based topic clustering, media-bias/ownership analysis, an LLM morning brief, and a voice Q&A assistant.
+- **🖥 Trading Desk** — plain-English → NautilusTrader strategy, backtested on live market data, with a shared canvas charting helper. **Execution is walled off** — the broker view is strictly read-only.
+- **🧩 Modular shell** — add a feature as a self-contained module (backend package + one frontend manifest); the nginx catch-all proxy means no config change is ever needed to expose a new route.
+- **🔒 Local-first & CDN-free** — both frontends vendor every asset (maps, fonts, graph libs); nothing loads from a third-party host at runtime.
 
-### SpiderFoot (port 5001)
-Native SpiderFoot web UI. Useful for browsing scan details the app doesn't
-surface, or running multi-target scans.
+---
 
-## Schema (Neo4j)
+## Screenshots
 
-Engine-managed nodes: `Person`, `Company`, `Location`
+> Capture these after `docker compose up` (see the demo notes in `/docs`):
 
-SpiderFoot-promoted nodes: `Email`, `Phone`, `Username`, `Account`, `IP`,
-`Domain`, `Breach`, `Leak`, `Wallet`
+1. **The shell home** — News module with the choropleth world map lit up and an article list.
+2. **An AI investigation brief** — a completed orchestration on a sample target, showing the synthesized brief + the coverage panel.
+3. **The graph view** — the Neo4j-backed network graph with a multi-hop entity cluster.
+4. **Trading Desk** — an AI Analysis chart (price + SMA + Bollinger band, legend, tooltip) or an equity-curve backtest.
+5. **The module grid / command palette** — showing the modular architecture at a glance.
 
-Relationships are typed and have provenance properties (`source`, `module`,
-`first_seen`).
+_(Place images in `docs/img/` and reference them here.)_
 
-The mapping from SpiderFoot's ~200 event types to graph nodes is in
-`backend/app/spiderfoot_client.py` (`EVENT_MAP`). It deliberately covers only
-~25 high-value types. Unmapped events are visible in the SpiderFoot UI but
-don't pollute the graph.
+---
 
-## Windows-specific notes
-
-- **Docker Desktop with WSL2 backend** is required.
-- **Line endings**: `neo4j/init.cypher` must be saved as **LF** (not CRLF).
-  `git config core.autocrlf input` will handle this.
-- First build takes longer on Windows due to file-system overhead during the
-  SpiderFoot dependency install.
-
-## Logs and debugging
+## Quick start
 
 ```bash
-docker compose logs -f backend       # API + crawler output
-docker compose logs -f spiderfoot    # SpiderFoot internals
-docker compose logs -f neo4j         # database
+# 1. Clone and configure
+git clone https://github.com/<you>/runi-os.git
+cd runi-os
+cp .env.example .env
+# generate a Neo4j password and paste it into .env:
+openssl rand -hex 24
+
+# 2. (Optional) add free OSINT API keys to un-blind more crawlers
+#    e.g. GITHUB_TOKEN, SHODAN_API_KEY — see docs/api-keys.md
+#    Leave blank to run with the always-on sources only.
+
+# 3. Bring up the whole stack
+docker compose up --build
 ```
 
-## What's NOT in here yet
+Then open **http://localhost:3001**.
 
-- Additional crawlers: crt.sh, Wayback, GitHub, NewsAPI, OCCRP Aleph
-- Putting more API lookups (HIBP, Hunter, etc.) through the engine so results
-  become graph nodes
-- Sanctions list import (OpenSanctions bulk)
+- Shell API docs: `http://localhost:8002/docs`
+- Legacy engine API: `http://localhost:8000`
+- Neo4j browser: `http://localhost:7474`
 
-## Resetting
+First boot pulls the Ollama model and builds SpiderFoot from source, so allow a few minutes.
 
-```bash
-docker compose down -v   # nukes all data including SpiderFoot scans
-```
+---
+
+## How it compares
+
+| | Maltego | SpiderFoot | **Runi-OS** |
+|---|:---:|:---:|:---:|
+| Self-hosted, no per-seat license | ◐ | ✓ | ✓ |
+| Unified provenance graph | ✓ | ◐ | ✓ |
+| **AI synthesis of findings into a brief** | ✗ | ✗ | ✓ |
+| Local LLM fallback (offline-capable) | ✗ | ✗ | ✓ |
+| Extensible module system | ◐ | ✓ | ✓ |
+| One-command stand-up | ✗ | ◐ | ✓ |
+
+Runi-OS doesn't replace scanners like SpiderFoot — it **orchestrates** them and adds the reasoning layer on top.
+
+---
+
+## Tech stack
+
+**Backend:** Python 3.11, FastAPI (async), httpx, APScheduler · **Graph:** Neo4j 5 (+ APOC) · **AI:** Anthropic Claude, Ollama, embedding-based topic classification · **Frontend:** vanilla JS SPA (no build step), Leaflet, Cytoscape, Canvas charts · **Infra:** Docker Compose (16 services), nginx · **Domain tools:** SpiderFoot, Maigret, theHarvester, TorBot, VoidAccess, NautilusTrader, Whisper, Piper.
+
+---
+
+## Security & scope
+
+Runi-OS is built for a **single operator on localhost** and ships **without authentication on purpose**. Do **not** expose it to a public network without adding an auth layer, TLS, and rate limiting. It is intended for **authorized** research and investigation on data you are legally permitted to process.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
