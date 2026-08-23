@@ -1896,8 +1896,11 @@ async function _runAnalysis() {
 
     _renderIndicatorChips(ind);
     _renderRatios(ind.ratios);
-    _drawAnalysisChart(ind);
+    // Reveal the chart wrapper BEFORE drawing: TDChart sizes the canvas from
+    // clientWidth, which reads 0 while the wrapper is display:none and falls back
+    // to a 600px buffer that then gets stretched to the real width (~1000px → blurry).
     if (chartWrap) chartWrap.style.display = 'block';
+    _drawAnalysisChart(ind);
     if (indRow)    indRow.style.display    = 'flex';
 
     if (loadingMsg) loadingMsg.textContent = 'Running AI analysis (20-40s)…';
