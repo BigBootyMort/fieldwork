@@ -72,7 +72,7 @@ flowchart TB
 
     UI --> NG --> REG
     REG --> M1 & M2 & M3 & M4
-    M1 & M3 & M4 -.iframe/api.-> Legacy
+    M1 & M3 & M4 -. iframe/api .-> Legacy
     ORCH --> CRAWL --> Tools
     ORCH --> LLM
     M2 --> NT

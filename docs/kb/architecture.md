@@ -1,13 +1,14 @@
 # Architecture
 
-_Last verified: 2026-07-11_
+_Last verified: 2026-08-23_
 
 Two generations coexist in one docker-compose stack:
 
 1. **Legacy Fieldwork** — monolithic OSINT investigation app (~10k LOC Python backend,
    ~18k LOC HTML/JS frontend). Still the workhorse for graph investigations.
 2. **Runi Shell** — modular chrome hosting Fieldwork (as an iframe) plus native modules
-   (News, Markets, Agent, Gigs, Presence, Reports). All new work goes here.
+   (News, Trading Desk, Quant, Agent, Reports, Gigs, Presence, Identity Forge). All new
+   work goes here.
 
 ## Services & ports (docker-compose.yml, all 127.0.0.1)
 
@@ -19,6 +20,7 @@ Two generations coexist in one docker-compose stack:
 | frontend | fieldwork-frontend | 3000 | Legacy Fieldwork SPA |
 | shell-backend | runi-shell-backend | 8002 | Runi Shell FastAPI (`/api/shell/*` + module routes) |
 | shell-frontend | runi-shell-frontend | 3001 | Shell SPA (nginx serves + proxies `/api/*`) |
+| quant-engine | fieldwork-quant-engine | 7005 | NautilusTrader 1.231 + FastAPI wrapper — backtest-only strategy engine for the Trading Desk's Strategy Lab (`QUANT_ENGINE_URL`). pandas pinned <3. |
 | spiderfoot | fieldwork-spiderfoot | 5001 | OSINT scanner, built from v4.0 source w/ pyyaml patch |
 | maigret / theharvester / recon | fieldwork-* | — | Aux OSINT tools |
 | mailaccess | fieldwork-mailaccess | — (internal :8000) | Email OSINT sweep (2500+ platforms, breach detection, identity clustering); ships its own REST server, backend reaches it at `MAILACCESS_URL=http://mailaccess:8000`, drives `POST /api/investigate` → poll `GET /api/report/{id}`. Volume `mailaccess_data` persists its SQLite cache. Route: `/enrich/email/{email}/mailaccess`. |
@@ -26,8 +28,13 @@ Two generations coexist in one docker-compose stack:
 | voidaccess | fieldwork-voidaccess | — (internal :7004) | Dark-web threat-intel (KatrielMoses/voidaccess) in **lightweight CLI mode** (SQLite, no Postgres/Next.js). Bundles its own Tor + a thin FastAPI wrapper (`voidaccess/server.py`) that shells out to `voidaccess investigate` → `voidaccess export --format json`. Heavy image (CPU torch + chromadb + spaCy). `VOIDACCESS_URL=http://voidaccess:7004`. Route: `POST /enrich/darkweb/voidaccess {query, depth, use_tor}`. Volume `voidaccess_data`. |
 | ollama | fieldwork-ollama | 11434 | Local LLM fallback (default model llama3.2) |
 | ollama-init | fieldwork-ollama-init | — | Pulls models on first start |
-| libretranslate | fieldwork-libretranslate | 5000 | Translation for foreign-language news |
+| piper | fieldwork-piper | — (internal) | Local text-to-speech (News brief / assistant read-aloud) |
+| whisper | fieldwork-whisper | — (internal) | Local speech-to-text (voice input) |
+| libretranslate | fieldwork-libretranslate | 5000 | Translation for foreign-language news. **Opt-in** — behind the `translation` compose profile (`docker compose --profile translation up -d`); not in the default running set. |
 | _(host process)_ | claude bridge | 8088 | `shell/host-bridge/claude_bridge.py`, wraps `claude -p` — NOT in Docker |
+
+The default `docker compose up` brings up **16 services** (the table above minus the two
+one-shot `*-init` jobs, which exit after running, and `libretranslate`, which is opt-in).
 
 Main entry point: **http://localhost:3001** (shell). Legacy direct: 3000.
 Shell API docs: http://localhost:8002/docs. Module registry JSON: `/api/shell/modules`.
