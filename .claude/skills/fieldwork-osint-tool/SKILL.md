@@ -56,7 +56,7 @@ Wiring (both flavors):
    `*.pem`). Copy `maigret/certs/avg_root_ca.pem` into `<tool>/certs/` so the build works
    behind the host AV proxy. Run as a non-root user; `EXPOSE` the port.
 2. **`docker-compose.yml`** — add a service next to `maigret:` (build context `./<tool>`,
-   `container_name: fieldwork-<tool>`, `restart: unless-stopped`, **no `ports:`** so it
+   `container_name: runi-<tool>`, `restart: unless-stopped`, **no `ports:`** so it
    stays internal-only). Add `<TOOL>_URL: http://<tool>:<port>` to the **backend** service's
    `environment:`. If the tool persists state, add a named volume.
 3. **health** — if the tool answers `GET /health`, add it to the aggregate `/health` handler

@@ -12,7 +12,7 @@ from registry import ModuleManifest   # /app is on sys.path (uvicorn WORKDIR)
 
 
 def init(app, deps):
-    """No-op — Fieldwork keeps its own backend at FIELDWORK_API."""
+    """No-op — Fieldwork keeps its own backend at RUNI_API."""
     return None
 
 
@@ -23,7 +23,7 @@ manifest = ModuleManifest(
     version="1.0.0",
     prefix="/api/fieldwork",
     kind="iframe",
-    url=None,           # frontend resolves the iframe src from settings.FIELDWORK_FRONT
+    url=None,           # frontend resolves the iframe src from settings.RUNI_FRONT
     description="OSINT investigation platform — graph, cases, enrichment, MITRE.",
     init=init,
 )

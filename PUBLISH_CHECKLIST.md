@@ -23,29 +23,28 @@ flip visibility to public later without a scramble. This file is a maintainer no
 
 ## 🎨 Rebrand: Fieldwork → Runi-OS
 
-**Done (everything a viewer sees):**
+**Done:**
 - Browser titles — `frontend/index.html`, `shell/frontend/index.html`
 - In-app header logos — legacy app (`// RUNI-OS OSINT`) and shell (`// RUNI-OS`)
-- `.env.example` header + `SEC_USER_AGENT`
-- `README.md` (full)
+- `.env.example` header + `SEC_USER_AGENT`; `README.md` (full)
+- **Env vars renamed** — `FIELDWORK_API`→`RUNI_API`, `FIELDWORK_FRONT`→`RUNI_FRONT`,
+  `FIELDWORK_FRONT_URL`→`RUNI_FRONT_URL` across `deps.py`, both `main.py`, the fieldwork
+  module, news/reports, `docker-compose.yml`, and the KB docs (byte-compile clean).
+- **Container names renamed** — `fieldwork-*`→`runi-*` in `docker-compose.yml` (+ docs).
+  Compose **service** names (the DNS keys like `backend`, `neo4j`) were left unchanged, so
+  inter-service URLs still resolve.
+- STIX identity constant + visible HUD strings → Runi-OS.
 
-**Deliberately kept (renaming these unattended would break the running stack):**
-| Identifier | Where | Why kept |
-|---|---|---|
-| `FIELDWORK_API`, `FIELDWORK_FRONT` env vars | code + compose (21 refs) | read by `deps.py`, both `main.py`, the fieldwork module, news/reports — a partial rename = `None` at runtime |
-| `container_name: fieldwork-*` | `docker-compose.yml` | cosmetic; referenced by `docker exec/logs` in docs |
-| module `id="fieldwork"` | shell registry | changing the id breaks route registration + the iframe module |
-| `.claude/skills/fieldwork-*` filenames | dev tooling | internal, not user-facing |
-
-**To finish the deep rename later (do it with the stack UP so you can verify):**
+⚠️ **Verify at runtime after a rebuild** (the rename was done with the stack down):
 ```bash
-# 1. rename the env vars everywhere, then rebuild + smoke-test
-git grep -l 'FIELDWORK_' | xargs sed -i 's/FIELDWORK_API/RUNI_API/g; s/FIELDWORK_FRONT/RUNI_FRONT/g'
-# 2. rename container_names (cosmetic)
-sed -i 's/container_name: fieldwork-/container_name: runi-/' docker-compose.yml
-docker compose up -d --build         # verify all 16 services + the legacy iframe still load
+docker compose up -d --build      # all 16 services + the legacy iframe should load
 ```
-Leave the `fieldwork` **module id** alone unless you also migrate its frontend manifest + routes.
+
+**Deliberately kept:**
+- module `id="fieldwork"` (shell registry) — changing the id breaks route registration +
+  the iframe module; it's an internal identifier, not user-facing.
+- `.claude/skills/fieldwork-*` **skill names** — renaming them breaks skill invocation
+  (their container *references* were updated; the skill names stay).
 
 ## ⚠️ Git history still contains
 

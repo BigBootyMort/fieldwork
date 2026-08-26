@@ -665,7 +665,7 @@ class NewsService:
     # ── Investigate bridge → Fieldwork AI Orchestrator ─────────────────────
     async def investigate(self, *, target: str, ttype: str = "auto") -> dict:
         """Hand a news entity to Fieldwork's AI Investigation Orchestrator."""
-        base = getattr(self.settings, "FIELDWORK_API", "http://backend:8000").rstrip("/")
+        base = getattr(self.settings, "RUNI_API", "http://backend:8000").rstrip("/")
         try:
             r = await self.http.post(f"{base}/investigate/orchestrate",
                                      json={"target": target, "type": ttype}, timeout=220)

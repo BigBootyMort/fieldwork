@@ -5783,7 +5783,7 @@ import datetime as _dt59
 import uuid     as _uuid59
 
 _STIX_SPEC_VERSION = "2.1"
-_STIX_FIELDWORK_ID = "identity--fieldwork-osint-platform"
+_STIX_RUNI_ID = "identity--runi-os-platform"
 
 
 def _stix_ts() -> str:
@@ -5939,7 +5939,7 @@ async def export_case_stix(
     fieldwork_identity = {
         "type":           "identity",
         "spec_version":   _STIX_SPEC_VERSION,
-        "id":             _STIX_FIELDWORK_ID,
+        "id":             _STIX_RUNI_ID,
         "name":           "Fieldwork OSINT Platform",
         "identity_class": "system",
         "created":        ts,
@@ -5957,7 +5957,7 @@ async def export_case_stix(
         "published":        ts,
         "created":          ts,
         "modified":         ts,
-        "created_by_ref":   _STIX_FIELDWORK_ID,
+        "created_by_ref":   _STIX_RUNI_ID,
         "object_refs":      [],   # filled below
         "x_fieldwork_status": case_node.get("status", ""),
         "x_fieldwork_priority": case_node.get("priority", ""),
@@ -5992,7 +5992,7 @@ async def export_case_stix(
             "target_ref":         tgt_stix,
             "created":            ts,
             "modified":           ts,
-            "created_by_ref":     _STIX_FIELDWORK_ID,
+            "created_by_ref":     _STIX_RUNI_ID,
         }
         stix_objects.append(rel_obj)
         report_obj["object_refs"].append(rel_obj["id"])

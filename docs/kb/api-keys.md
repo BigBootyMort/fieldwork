@@ -13,7 +13,7 @@ investigation quality.
 > Check the truly-injected state from inside the app context (a bare
 > `python -c "os.getenv(...)"` shows only compose's empty placeholders, not the keys
 > `runtime_env` injects):
-> `docker exec fieldwork-backend sh -lc 'cd /app/app; python -c "import runtime_env, os; print([k for k,v in {n:os.getenv(n,\"\") for n in [\"SHODAN_API_KEY\",\"GITHUB_TOKEN\"]}.items() if v])"'`
+> `docker exec runi-backend sh -lc 'cd /app/app; python -c "import runtime_env, os; print([k for k,v in {n:os.getenv(n,\"\") for n in [\"SHODAN_API_KEY\",\"GITHUB_TOKEN\"]}.items() if v])"'`
 
 ## Where keys go
 

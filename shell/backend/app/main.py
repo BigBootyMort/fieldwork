@@ -9,7 +9,7 @@ Exposes:
 Module-specific routes are mounted under each module's `prefix`
 (e.g. /api/news/feeds, /api/calendar/events) when those modules ship.
 For v1 the only module is Fieldwork which keeps its existing backend
-at FIELDWORK_API and is loaded into the shell via iframe.
+at RUNI_API and is loaded into the shell via iframe.
 """
 from __future__ import annotations
 
@@ -103,7 +103,7 @@ async def list_modules():
     for m in registry.list_json():
         # Inject iframe URL for legacy modules that defer to env config
         if m["kind"] == "iframe" and m["url"] is None and m["id"] == "fieldwork":
-            m["url"] = settings.FIELDWORK_FRONT
+            m["url"] = settings.RUNI_FRONT
         out.append(m)
     return {"modules": out, "count": len(out)}
 
@@ -113,8 +113,8 @@ async def public_config():
     """Public config the UI may need (no secrets)."""
     s: Settings = deps["settings"]
     return {
-        "fieldwork_api":   s.FIELDWORK_API,
-        "fieldwork_front": s.FIELDWORK_FRONT,
+        "runi_api":   s.RUNI_API,
+        "runi_front": s.RUNI_FRONT,
         "ollama_url":      s.OLLAMA_URL,
         "ollama_model":    s.OLLAMA_MODEL,
     }

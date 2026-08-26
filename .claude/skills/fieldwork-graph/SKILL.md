@@ -16,7 +16,7 @@ description: >-
 # Fieldwork shared graph (Neo4j)
 
 **One Neo4j instance backs everything** — legacy Fieldwork, the shell modules, news,
-reports, audit. Container `fieldwork-neo4j` (bolt `7687`, browser `7474`). There is no
+reports, audit. Container `runi-neo4j` (bolt `7687`, browser `7474`). There is no
 second database, so a label or relationship you add is visible to every service. ~114 files
 touch it; treat the schema as a shared contract.
 

@@ -29,8 +29,8 @@ class Settings:
     NEO4J_URI:        str = os.getenv("NEO4J_URI", "bolt://neo4j:7687")
     NEO4J_USER:       str = os.getenv("NEO4J_USER", "neo4j")
     NEO4J_PASSWORD:   str = os.getenv("NEO4J_PASSWORD", "changeme_dev_only")
-    FIELDWORK_API:    str = os.getenv("FIELDWORK_API", "http://backend:8000")
-    FIELDWORK_FRONT:  str = os.getenv("FIELDWORK_FRONT", "http://localhost:3000")
+    RUNI_API:    str = os.getenv("RUNI_API", "http://backend:8000")
+    RUNI_FRONT:  str = os.getenv("RUNI_FRONT", "http://localhost:3000")
     OLLAMA_URL:       str = os.getenv("OLLAMA_URL", "http://ollama:11434")
     OLLAMA_MODEL:     str = os.getenv("OLLAMA_MODEL", "llama3.2")
     # Quant module — NautilusTrader backtest engine sibling container.

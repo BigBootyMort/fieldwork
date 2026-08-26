@@ -14,23 +14,23 @@ Two generations coexist in one docker-compose stack:
 
 | Service | Container | Port | Role |
 |---|---|---|---|
-| neo4j | fieldwork-neo4j | 7474 / 7687 | Shared graph DB for everything |
-| neo4j-init | fieldwork-neo4j-init | — | Runs `neo4j/init.cypher` (must be LF) once |
-| backend | fieldwork-backend | 8000 | Legacy Fieldwork FastAPI (graph, crawlers, SpiderFoot proxy) |
-| frontend | fieldwork-frontend | 3000 | Legacy Fieldwork SPA |
+| neo4j | runi-neo4j | 7474 / 7687 | Shared graph DB for everything |
+| neo4j-init | runi-neo4j-init | — | Runs `neo4j/init.cypher` (must be LF) once |
+| backend | runi-backend | 8000 | Legacy Fieldwork FastAPI (graph, crawlers, SpiderFoot proxy) |
+| frontend | runi-frontend | 3000 | Legacy Fieldwork SPA |
 | shell-backend | runi-shell-backend | 8002 | Runi Shell FastAPI (`/api/shell/*` + module routes) |
 | shell-frontend | runi-shell-frontend | 3001 | Shell SPA (nginx serves + proxies `/api/*`) |
-| quant-engine | fieldwork-quant-engine | 7005 | NautilusTrader 1.231 + FastAPI wrapper — backtest-only strategy engine for the Trading Desk's Strategy Lab (`QUANT_ENGINE_URL`). pandas pinned <3. |
-| spiderfoot | fieldwork-spiderfoot | 5001 | OSINT scanner, built from v4.0 source w/ pyyaml patch |
-| maigret / theharvester / recon | fieldwork-* | — | Aux OSINT tools |
-| mailaccess | fieldwork-mailaccess | — (internal :8000) | Email OSINT sweep (2500+ platforms, breach detection, identity clustering); ships its own REST server, backend reaches it at `MAILACCESS_URL=http://mailaccess:8000`, drives `POST /api/investigate` → poll `GET /api/report/{id}`. Volume `mailaccess_data` persists its SQLite cache. Route: `/enrich/email/{email}/mailaccess`. |
-| torbot | fieldwork-torbot | — (internal :7003) | Dark-web .onion crawler (DedSecInside/TorBot). Bundles its own **Tor daemon** (SOCKS5 :9050) + a thin FastAPI wrapper (`torbot/server.py`) that shells out to the TorBot CLI; backend reaches it at `TORBOT_URL=http://torbot:7003` via `POST /search {url, depth}`. Route: `POST /enrich/onion/torbot`. Complements `ahmia` (search) — TorBot *crawls* a given onion's link tree. |
-| voidaccess | fieldwork-voidaccess | — (internal :7004) | Dark-web threat-intel (KatrielMoses/voidaccess) in **lightweight CLI mode** (SQLite, no Postgres/Next.js). Bundles its own Tor + a thin FastAPI wrapper (`voidaccess/server.py`) that shells out to `voidaccess investigate` → `voidaccess export --format json`. Heavy image (CPU torch + chromadb + spaCy). `VOIDACCESS_URL=http://voidaccess:7004`. Route: `POST /enrich/darkweb/voidaccess {query, depth, use_tor}`. Volume `voidaccess_data`. |
-| ollama | fieldwork-ollama | 11434 | Local LLM fallback (default model llama3.2) |
-| ollama-init | fieldwork-ollama-init | — | Pulls models on first start |
-| piper | fieldwork-piper | — (internal) | Local text-to-speech (News brief / assistant read-aloud) |
-| whisper | fieldwork-whisper | — (internal) | Local speech-to-text (voice input) |
-| libretranslate | fieldwork-libretranslate | 5000 | Translation for foreign-language news. **Opt-in** — behind the `translation` compose profile (`docker compose --profile translation up -d`); not in the default running set. |
+| quant-engine | runi-quant-engine | 7005 | NautilusTrader 1.231 + FastAPI wrapper — backtest-only strategy engine for the Trading Desk's Strategy Lab (`QUANT_ENGINE_URL`). pandas pinned <3. |
+| spiderfoot | runi-spiderfoot | 5001 | OSINT scanner, built from v4.0 source w/ pyyaml patch |
+| maigret / theharvester / recon | runi-* | — | Aux OSINT tools |
+| mailaccess | runi-mailaccess | — (internal :8000) | Email OSINT sweep (2500+ platforms, breach detection, identity clustering); ships its own REST server, backend reaches it at `MAILACCESS_URL=http://mailaccess:8000`, drives `POST /api/investigate` → poll `GET /api/report/{id}`. Volume `mailaccess_data` persists its SQLite cache. Route: `/enrich/email/{email}/mailaccess`. |
+| torbot | runi-torbot | — (internal :7003) | Dark-web .onion crawler (DedSecInside/TorBot). Bundles its own **Tor daemon** (SOCKS5 :9050) + a thin FastAPI wrapper (`torbot/server.py`) that shells out to the TorBot CLI; backend reaches it at `TORBOT_URL=http://torbot:7003` via `POST /search {url, depth}`. Route: `POST /enrich/onion/torbot`. Complements `ahmia` (search) — TorBot *crawls* a given onion's link tree. |
+| voidaccess | runi-voidaccess | — (internal :7004) | Dark-web threat-intel (KatrielMoses/voidaccess) in **lightweight CLI mode** (SQLite, no Postgres/Next.js). Bundles its own Tor + a thin FastAPI wrapper (`voidaccess/server.py`) that shells out to `voidaccess investigate` → `voidaccess export --format json`. Heavy image (CPU torch + chromadb + spaCy). `VOIDACCESS_URL=http://voidaccess:7004`. Route: `POST /enrich/darkweb/voidaccess {query, depth, use_tor}`. Volume `voidaccess_data`. |
+| ollama | runi-ollama | 11434 | Local LLM fallback (default model llama3.2) |
+| ollama-init | runi-ollama-init | — | Pulls models on first start |
+| piper | runi-piper | — (internal) | Local text-to-speech (News brief / assistant read-aloud) |
+| whisper | runi-whisper | — (internal) | Local speech-to-text (voice input) |
+| libretranslate | runi-libretranslate | 5000 | Translation for foreign-language news. **Opt-in** — behind the `translation` compose profile (`docker compose --profile translation up -d`); not in the default running set. |
 | _(host process)_ | claude bridge | 8088 | `shell/host-bridge/claude_bridge.py`, wraps `claude -p` — NOT in Docker |
 
 The default `docker compose up` brings up **16 services** (the table above minus the two
@@ -51,8 +51,8 @@ Shell API docs: http://localhost:8002/docs. Module registry JSON: `/api/shell/mo
 - `llm_bridge.py` — shared Claude access layer (see `llm-engines.md`).
 - `modules/<id>/` — one package per module (see `modules.md`).
 
-Key `Settings` env vars: `NEO4J_URI/USER/PASSWORD`, `FIELDWORK_API` (http://backend:8000),
-`FIELDWORK_FRONT` (http://localhost:3000), `OLLAMA_URL/MODEL`, `GITHUB_TOKEN`,
+Key `Settings` env vars: `NEO4J_URI/USER/PASSWORD`, `RUNI_API` (http://backend:8000),
+`RUNI_FRONT` (http://localhost:3000), `OLLAMA_URL/MODEL`, `GITHUB_TOKEN`,
 `ALPACA_API_KEY/SECRET/BASE_URL` (defaults to paper-api), `AGENT_WORKSPACE`.
 
 ## Shell frontend (`shell/frontend/`)

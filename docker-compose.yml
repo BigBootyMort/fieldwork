@@ -3,7 +3,7 @@ name: fieldwork
 services:
   neo4j:
     image: neo4j:5-community
-    container_name: fieldwork-neo4j
+    container_name: runi-neo4j
     environment:
       NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:-changeme_dev_only}
       NEO4J_PLUGINS: '["apoc"]'
@@ -30,7 +30,7 @@ services:
 
   neo4j-init:
     image: neo4j:5-community
-    container_name: fieldwork-neo4j-init
+    container_name: runi-neo4j-init
     depends_on:
       neo4j:
         condition: service_healthy
@@ -43,7 +43,7 @@ services:
 
   backend:
     build: ./backend
-    container_name: fieldwork-backend
+    container_name: runi-backend
     ports:
       - "127.0.0.1:8000:8000"
     environment:
@@ -110,7 +110,7 @@ services:
   # Still accessible standalone at 127.0.0.1:3000 (used as iframe src by the shell).
   frontend:
     build: ./frontend
-    container_name: fieldwork-frontend
+    container_name: runi-frontend
     ports:
       - "127.0.0.1:3000:80"
     volumes:
@@ -137,8 +137,8 @@ services:
       NEO4J_URI:        bolt://neo4j:7687
       NEO4J_USER:       neo4j
       NEO4J_PASSWORD:   ${NEO4J_PASSWORD:-changeme_dev_only}
-      FIELDWORK_API:    http://backend:8000
-      FIELDWORK_FRONT:  ${FIELDWORK_FRONT_URL:-http://localhost:3000}
+      RUNI_API:    http://backend:8000
+      RUNI_FRONT:  ${RUNI_FRONT_URL:-http://localhost:3000}
       OLLAMA_URL:       http://ollama:11434
       OLLAMA_MODEL:     ${OLLAMA_MODEL:-llama3.2}
       # Quant module → NautilusTrader backtest engine sibling container.
@@ -184,7 +184,7 @@ services:
   maigret:
     build:
       context: ./maigret
-    container_name: fieldwork-maigret
+    container_name: runi-maigret
     restart: unless-stopped
 
   # theHarvester — email + subdomain harvesting from open sources.
@@ -192,7 +192,7 @@ services:
   theharvester:
     build:
       context: ./theharvester
-    container_name: fieldwork-theharvester
+    container_name: runi-theharvester
     restart: unless-stopped
 
   # MailAccess — email OSINT (2500+ platforms, breach detection, identity clustering).
@@ -202,7 +202,7 @@ services:
   mailaccess:
     build:
       context: ./mailaccess
-    container_name: fieldwork-mailaccess
+    container_name: runi-mailaccess
     restart: unless-stopped
     volumes:
       # Persist MailAccess's SQLite cache so finished investigations survive restarts.
@@ -214,7 +214,7 @@ services:
   torbot:
     build:
       context: ./torbot
-    container_name: fieldwork-torbot
+    container_name: runi-torbot
     restart: unless-stopped
     volumes:
       # Live-mount the wrapper so tweaks need only a restart, not a rebuild (matches recon).
@@ -227,7 +227,7 @@ services:
   voidaccess:
     build:
       context: ./voidaccess
-    container_name: fieldwork-voidaccess
+    container_name: runi-voidaccess
     restart: unless-stopped
     volumes:
       - ./voidaccess/server.py:/srv/server.py:ro
@@ -241,7 +241,7 @@ services:
   quant-engine:
     build:
       context: ./quant-engine
-    container_name: fieldwork-quant-engine
+    container_name: runi-quant-engine
     restart: unless-stopped
     environment:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
@@ -258,7 +258,7 @@ services:
   spiderfoot:
     build:
       context: ./spiderfoot
-    container_name: fieldwork-spiderfoot
+    container_name: runi-spiderfoot
     ports:
       - "127.0.0.1:5001:5001"
     volumes:
@@ -271,7 +271,7 @@ services:
   recon:
     build:
       context: ./recon
-    container_name: fieldwork-recon
+    container_name: runi-recon
     restart: unless-stopped
     volumes:
       # Live-mount app.py so fixes don't need a rebuild (matches backend pattern)
@@ -292,7 +292,7 @@ services:
   # First-run model pull happens via ollama-init below (~2 GB download).
   ollama:
     image: ollama/ollama
-    container_name: fieldwork-ollama
+    container_name: runi-ollama
     ports:
       - "127.0.0.1:11434:11434"
     volumes:
@@ -310,7 +310,7 @@ services:
   # is already present, so it exits quickly on subsequent starts.
   ollama-init:
     image: ollama/ollama
-    container_name: fieldwork-ollama-init
+    container_name: runi-ollama-init
     depends_on:
       ollama:
         condition: service_healthy
@@ -331,7 +331,7 @@ services:
   # if not running — the backend simply skips translation.
   libretranslate:
     image: libretranslate/libretranslate:latest
-    container_name: fieldwork-libretranslate
+    container_name: runi-libretranslate
     ports:
       - "127.0.0.1:5000:5000"
     environment:
@@ -347,7 +347,7 @@ services:
   #    Reached by shell-backend at http://piper:5000; 5051 is a localhost audition port.
   piper:
     build: ./piper
-    container_name: fieldwork-piper
+    container_name: runi-piper
     ports:
       - "127.0.0.1:5051:5000"
     environment:
@@ -360,7 +360,7 @@ services:
   #    Reached by shell-backend at http://whisper:5000.
   whisper:
     build: ./whisper
-    container_name: fieldwork-whisper
+    container_name: runi-whisper
     restart: unless-stopped   # model (base.en) is baked into the image
 
 volumes:
