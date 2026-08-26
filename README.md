@@ -121,10 +121,11 @@ flowchart TB
 **OSINT investigation dashboard** — one search bar over 45+ sources; auto-detects name / email / IP / domain / username / phone.
 ![OSINT investigation dashboard](docs/img/06-osint-dashboard.png)
 
+**Investigation graph** — every source writes into one Neo4j graph. Here, a domain investigation centered on `github.com` (69 nodes: subdomains, AWS nameservers, IPs), force-directed, with provenance on every edge.
+![Investigation graph](docs/img/03-graph.png)
+
 **Trading Desk** — markets, research, and a plain-English → NautilusTrader strategy lab in one module (broker view read-only).
 ![Trading Desk](docs/img/04-trading-desk.png)
-
-> Still to add (see [`docs/DEMO.md`](docs/DEMO.md)): the Neo4j network-graph view with a multi-hop entity cluster (needs an investigation run to populate the graph first).
 
 ---
 
