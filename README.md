@@ -112,15 +112,16 @@ flowchart TB
 
 ## Screenshots
 
-> Capture these after `docker compose up` (see the demo notes in `/docs`):
+**News & Brief** — geocoded choropleth world map, media-bias-tagged article stream, and an LLM morning brief.
+![News & Brief](docs/img/01-shell-news.png)
 
-1. **The shell home** — News module with the choropleth world map lit up and an article list.
-2. **An AI investigation brief** — a completed orchestration on a sample target, showing the synthesized brief + the coverage panel.
-3. **The graph view** — the Neo4j-backed network graph with a multi-hop entity cluster.
-4. **Trading Desk** — an AI Analysis chart (price + SMA + Bollinger band, legend, tooltip) or an equity-curve backtest.
-5. **The module grid / command palette** — showing the modular architecture at a glance.
+**OSINT investigation dashboard** — one search bar over 45+ sources; auto-detects name / email / IP / domain / username / phone.
+![OSINT investigation dashboard](docs/img/06-osint-dashboard.png)
 
-_(Place images in `docs/img/` and reference them here.)_
+**Trading Desk** — markets, research, and a plain-English → NautilusTrader strategy lab in one module (broker view read-only).
+![Trading Desk](docs/img/04-trading-desk.png)
+
+> Still to add (interactive captures — see [`docs/DEMO.md`](docs/DEMO.md)): a completed AI investigation brief with its coverage panel, and the Neo4j graph view.
 
 ---
 
