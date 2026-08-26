@@ -115,13 +115,16 @@ flowchart TB
 **News & Brief** — geocoded choropleth world map, media-bias-tagged article stream, and an LLM morning brief.
 ![News & Brief](docs/img/01-shell-news.png)
 
+**Intelligence Brief** — the Reports module synthesizes News + graph data into a cited, structured brief (hotspots, threat indicators, recommended actions).
+![Intelligence Brief](docs/img/02-intelligence-brief.png)
+
 **OSINT investigation dashboard** — one search bar over 45+ sources; auto-detects name / email / IP / domain / username / phone.
 ![OSINT investigation dashboard](docs/img/06-osint-dashboard.png)
 
 **Trading Desk** — markets, research, and a plain-English → NautilusTrader strategy lab in one module (broker view read-only).
 ![Trading Desk](docs/img/04-trading-desk.png)
 
-> Still to add (interactive captures — see [`docs/DEMO.md`](docs/DEMO.md)): a completed AI investigation brief with its coverage panel, and the Neo4j graph view.
+> Still to add (see [`docs/DEMO.md`](docs/DEMO.md)): the Neo4j network-graph view with a multi-hop entity cluster (needs an investigation run to populate the graph first).
 
 ---
 
