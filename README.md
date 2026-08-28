@@ -133,7 +133,7 @@ flowchart TB
 
 ```bash
 # 1. Clone and configure
-git clone https://github.com/<you>/runi-os.git
+git clone https://github.com/Abel-Nightroad/runi-os.git
 cd runi-os
 cp .env.example .env
 # generate a Neo4j password and paste it into .env:
